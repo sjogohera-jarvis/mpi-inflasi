@@ -1,0 +1,1459 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>MPI Inflasi oleh Sjogohera</title>
+<script>
+  /* Pindahkan fungsi imgErr ke head agar dimuat sebelum elemen gambar (<img>) dirender di DOM */
+  function imgErr(el){
+    el.onerror=null;
+    const label=(el.alt||'gambar').replace(/[<>&]/g,'').slice(0,20);
+    const svg="<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='220' height='160'><rect width='100%' height='100%' rx='14' fill='#F2FBFF' stroke='#50CEDC' stroke-width='3' stroke-dasharray='9'/><text x='50%' y='44%' font-size='44' text-anchor='middle'>🖼️</text><text x='50%' y='74%' font-size='15' font-family='sans-serif' font-weight='bold' text-anchor='middle' fill='#248CFF'>"+label+"</text></svg>";
+    el.src="data:image/svg+xml;utf8,"+encodeURIComponent(svg);
+  }
+
+  // Deklarasi global di awal
+  let infoMurid = { nama:"", sekolah:"" };
+  let progressStatus = { belajar: false, bermain: false, berlatih: false };
+</script>
+<style>
+  /* ====== KONFIGURASI WARNA (Berdasarkan Palet Baru) ====== */
+  :root {
+    --primary: #248CFF;       /* Primary */
+    --primary-tua: #1B6BC4;   /* Biru Gelap untuk kontras teks & efek hover */
+    --accent: #50CEDC;        /* Secondary digunakan untuk tombol/aksen */
+    --accent-tua: #3AA4B0;    /* Secondary gelap */
+    --tinta: #1E1E1E;         /* Text */
+    --krem: #FFFFFF;          /* Accent putih */
+    --krem-2: #F2FBFF;        /* Background utama */
+    --garis: #BFE3FF;         /* Garis pembatas disesuaikan dengan tema biru pastel */
+    --hijau: #5CDFAB;         /* Success */
+    --hijau-tua: #42AC81;     /* Success gelap */
+    --salah: #FF6B6B;         /* Indikator Salah (Merah soft menyesuaikan pastel) */
+    --biru-muda: #E8F5FF;     /* Latar sorotan/hover */
+    --bayang: 0 16px 32px rgba(36, 140, 255, 0.15);
+    --bayang-kecil: 0 8px 20px rgba(36, 140, 255, 0.08);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    background: #E8F5FF; overflow: hidden;
+    font-family: 'Nunito', 'Segoe UI', Tahoma, system-ui, sans-serif;
+    color: var(--tinta); touch-action: manipulation;
+  }
+  #viewport { position: fixed; inset: 0; overflow: hidden; }
+  #stage {
+    position: absolute; top: 0; left: 0; width: 1280px; height: 720px;
+    transform-origin: top left; background: var(--krem-2);
+    overflow: hidden; user-select: none; border-radius: 20px;
+  }
+  .screen { position: absolute; inset: 0; display: none; flex-direction: column; }
+  .screen.active { display: flex; animation: fade .4s cubic-bezier(0.4, 0, 0.2, 1); }
+  @keyframes fade { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: none; } }
+  .bg { position: absolute; inset: 0; background-size: cover; background-position: center; z-index: 0; }
+  .bg:not(:has(img)) { background: linear-gradient(135deg, #F2FBFF 0%, #FFFFFF 100%); }
+  .bg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
+  
+  /* ====== Topbar & Navbar ====== */
+  .topbar {
+    position: relative; z-index: 5; height: 80px; flex: 0 0 80px;
+    display: flex; align-items: center; gap: 14px; padding: 0 30px;
+    background: #FFFFFF; border-bottom: 2px solid var(--garis);
+    border-radius: 0 0 40px 40px; box-shadow: var(--bayang-kecil);
+  }
+  .topbar .judul-bar { font-weight: 800; font-size: 22px; color: var(--primary-tua); }
+  .topbar .judul-bar small { display: block; font-weight: 600; font-size: 14px; opacity: 0.7; }
+  .spacer { flex: 1; }
+  .progress-wrap { display: flex; align-items: center; gap: 12px; color: var(--primary-tua); }
+  .progress-track { width: 200px; height: 16px; border-radius: 99px; background: #D3EAFD; overflow: hidden; }
+  .progress-fill { height: 100%; width: 0%; border-radius: 99px; background: linear-gradient(90deg, var(--accent), var(--accent-tua)); transition: width .5s ease; }
+  .progress-label { font-size: 14px; font-weight: 800; }
+  .skor-badge {
+    background: #FFF9E6; border: 3px solid #F1C40F; padding: 6px 18px;
+    border-radius: 99px; font-weight: 900; font-size: 18px; color: #856404;
+    display: flex; align-items: center; gap: 8px; box-shadow: var(--bayang-kecil);
+  }
+  .icon-btn {
+    width: 50px; height: 50px; border: none; border-radius: 50%; cursor: pointer;
+    background: #FFFFFF; border: 2px solid var(--garis); color: var(--primary); font-size: 22px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; transition: all .2s; box-shadow: var(--bayang-kecil);
+  }
+  .icon-btn:active { transform: scale(.9); }
+  .content { position: relative; z-index: 4; flex: 1; padding: 30px 40px; overflow: hidden; display: flex; flex-direction: column; }
+  .center-col { display: flex; flex-direction: column; height: 100%; min-height: 0; justify-content: center; }
+  
+  .navbar {
+    position: relative; z-index: 5; height: 90px; flex: 0 0 90px; display: flex; align-items: center; justify-content: space-between; padding: 0 30px;
+    background: #FFFFFF; border-top: 2px solid var(--garis); border-radius: 40px 40px 0 0; box-shadow: 0 -8px 20px rgba(0,0,0,0.03);
+  }
+  .nav-btn {
+    min-width: 190px; height: 56px; padding: 0 30px; border: none; border-radius: 99px; cursor: pointer; font-size: 18px; font-weight: 800; color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px; box-shadow: var(--bayang-kecil); transition: all .2s;
+  }
+  .nav-btn:active { transform: translateY(2px) scale(.98); }
+  .nav-btn[disabled] { opacity: .4; cursor: not-allowed; }
+  .nav-back { background: #A0C4E2; color: var(--tinta); }
+  .nav-next { background: linear-gradient(135deg, var(--accent), var(--accent-tua)); color: var(--tinta); }
+  .btn { border: none; border-radius: 99px; cursor: pointer; font-weight: 800; color: #fff; box-shadow: var(--bayang-kecil); transition: all .2s; }
+  .btn:active { transform: translateY(2px) scale(.96); }
+  .btn-merah { background: linear-gradient(135deg, var(--salah), #E74C3C); }
+  .btn-biru { background: linear-gradient(135deg, var(--primary), var(--primary-tua)); }
+  .btn-kuning { background: linear-gradient(135deg, var(--accent), var(--accent-tua)); color: var(--tinta); }
+  
+  /* ====== JUDUL & MENU ====== */
+  #scr-judul .bg::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(180deg, rgba(0,0,0,0.08) 0%, rgba(0,0,0,0.22) 50%, rgba(0,0,0,0.55) 100%), linear-gradient(135deg, rgba(36,140,255,0.18) 0%, rgba(26,107,209,0.16) 100%); }
+  #scr-judul .bg img { opacity: 1; z-index: 0; } 
+  .judul-center { position: relative; z-index: 4; flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 12px; padding: 20px; }
+  .pita { background: #FFFFFF; color: var(--primary-tua); font-weight: 800; padding: 10px 28px; border-radius: 99px; font-size: 16px; box-shadow: var(--bayang-kecil); }
+  .judul-utama { color: #FFFFFF; font-size: 64px; font-weight: 900; line-height: 1.1; margin: 10px 0 0; text-shadow: 0 2px 6px rgba(0,0,0,0.65), 0 8px 24px rgba(0,0,0,0.5); }
+  .judul-sub { color: #F2FBFF; font-size: 26px; font-weight: 700; margin: 0; text-shadow: 0 2px 6px rgba(0,0,0,0.7); }
+  .mulai-btn { margin-top: 24px; height: 80px; padding: 0 60px; font-size: 28px; border-radius: 99px; }
+  .judul-topright { position: absolute; top: 24px; right: 30px; z-index: 6; display: flex; gap: 14px; }
+  .img-deco { width: 170px; height: 170px; filter: drop-shadow(0 10px 15px rgba(255,255,255,0.2)); object-fit: contain; }
+  
+  #scr-menu .bg { background: linear-gradient(180deg, var(--krem-2), #FFFFFF); }
+  .menu-head { position: relative; z-index: 4; text-align: center; padding: 30px 20px 10px; }
+  .menu-head h2 { font-size: 38px; margin: 0; color: var(--primary-tua); font-weight: 900; }
+  .menu-cards { position: relative; z-index: 4; flex: 1; display: flex; gap: 30px; align-items: center; justify-content: center; padding: 20px 40px 40px; }
+  .menu-card {
+    width: 310px; height: 380px; border-radius: 40px; cursor: pointer; color: #fff;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    box-shadow: 0 15px 35px rgba(36, 140, 255, 0.15); transition: all .3s; padding: 30px; text-align: center; border: 4px solid rgba(255,255,255,0.8);
+  }
+  .menu-card:active { transform: scale(.98); }
+  .menu-card .img-ikon { width: 120px; height: 120px; object-fit: contain; margin-bottom: 10px; filter: drop-shadow(0 8px 10px rgba(0,0,0,0.2)); }
+  .menu-card .mc-judul { font-size: 32px; font-weight: 900; }
+  .menu-card .mc-sub { font-size: 17px; font-weight: 600; background: rgba(0,0,0,0.15); padding: 8px 16px; border-radius: 99px; }
+  .mc-belajar { background: linear-gradient(135deg, var(--primary), var(--primary-tua)); }
+  .mc-bermain { background: linear-gradient(135deg, var(--hijau), var(--hijau-tua)); color: var(--tinta); }
+  .mc-berlatih { background: linear-gradient(135deg, var(--accent), var(--accent-tua)); color: var(--tinta); }
+  
+  /* ====== BELAJAR ====== */
+  .belajar-frame { flex:1; display:flex; min-height:0; background:#fff; border-radius:32px; box-shadow:var(--bayang); overflow:hidden; border:3px solid var(--garis); }
+  .belajar-img-sisi { flex:0 0 50%; max-width:50%; background:linear-gradient(160deg,var(--krem-2),#FFFFFF); display:flex; align-items:center; justify-content:center; padding:16px; border-right:3px solid var(--garis); }
+  .belajar-img-sisi img, .belajar-img-sisi video { width:100%; height:auto; max-height:100%; object-fit:contain; filter:drop-shadow(0 12px 18px rgba(0,0,0,0.08)); border-radius:16px; }
+  .belajar-teks-sisi { flex:1 1 50%; padding:34px 46px; overflow-y:auto; display:flex; flex-direction:column; gap:18px; }
+  .belajar-teks-sisi h2 { margin:0; font-size:34px; color:var(--primary-tua); font-weight:900; line-height:1.15; }
+  .belajar-intro { background:linear-gradient(135deg,var(--primary),var(--primary-tua)); color:#fff; padding:16px 24px; border-radius:20px; font-size:22px; font-weight:800; line-height:1.3; }
+  .belajar-isi { font-size:20px; line-height:1.6; color:var(--tinta); }
+  .belajar-isi ul { margin:10px 0 0; padding-left:22px; }
+  .belajar-isi li { margin-bottom:8px; }
+  .belajar-isi b { color: var(--primary-tua); }
+  .belajar-kuis { margin-top:auto; padding:18px 20px; background:var(--biru-muda); border:2px dashed var(--primary); border-radius:20px; }
+  .belajar-kuis .bk-tanya { font-weight:800; color:var(--primary-tua); font-size:19px; margin:0 0 12px; }
+  .belajar-kuis .bk-opsi { display:flex; gap:12px; flex-wrap:wrap; }
+  
+  /* ====== SOAL & INTERAKTIF ====== */
+  .akt-instruksi { font-size: 18px; margin: 0 0 14px; background: #fff; padding: 10px 20px; border-radius: 16px; display: inline-block; box-shadow: var(--bayang-kecil); text-align: center; border: 2px solid var(--garis); color: var(--tinta); font-weight: bold;}
+  
+  .soal { background: #FFFFFF; border-radius: 20px; padding: 16px 20px; font-size: 20px; font-weight: 800; line-height: 1.4; margin-bottom: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); color: var(--primary-tua); border-left: 8px solid var(--primary); }
+  .opsi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .opsi { background: #FFFFFF; border: 3px solid var(--garis); border-radius: 20px; padding: 12px 18px; font-size: 18px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); transition: all .2s; color: var(--tinta); }
+  .opsi:hover { border-color: var(--primary); background: var(--biru-muda); }
+  .opsi .bul { width: 36px; height: 36px; flex: 0 0 36px; border-radius: 50%; background: var(--krem-2); border: 2px solid var(--garis); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 16px; color: var(--primary-tua); transition: all .2s; }
+  .opsi:hover .bul { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .opsi.benar { border-color: var(--hijau-tua); background: #ECFDF5; color: var(--hijau-tua); }
+  .opsi.benar .bul { background: var(--hijau-tua); color: #fff; border-color: var(--hijau-tua); }
+  .opsi.salah { border-color: var(--salah); background: #FEF2F2; color: var(--salah); }
+  .opsi.salah .bul { background: var(--salah); color: #fff; border-color: var(--salah); }
+  .opsi-kompleks { cursor: pointer; border: 4px solid var(--garis); background: #fff; }
+  .opsi-kompleks.terpilih { border-color: var(--primary); background: var(--biru-muda); }
+  .opsi-kompleks.terpilih .bul { background: var(--primary); color: #fff; border-color: var(--primary); }
+  
+  /* ====== TATA LETAK DUA SISI (BERLATIH) ====== */
+  .soal-split { display: flex; gap: 20px; flex: 1; min-height: 0; align-items: stretch; }
+  .soal-split .soal-kiri {
+    flex: 0 0 44%; max-width: 44%;
+    background: #FFFFFF; border-radius: 20px; padding: 20px 24px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.05); border-left: 8px solid var(--primary);
+    overflow-y: auto; display: flex; flex-direction: column; gap: 10px;
+  }
+  .soal-split .soal-kiri .soal-label { font-size: 13px; font-weight: 900; color: var(--primary); letter-spacing: 2px; text-transform: uppercase; }
+  .soal-split .soal-kiri .soal-teks { font-size: 19px; font-weight: 800; line-height: 1.45; color: var(--primary-tua); }
+  .soal-split .soal-kiri .soal-stimulus { font-size: 15px; font-weight: 600; line-height: 1.5; color: var(--tinta); background: var(--krem-2); border-radius: 14px; padding: 12px 16px; border: 1px solid var(--garis); }
+  .soal-split .soal-kiri .soal-stimulus b { color: var(--primary-tua); }
+  .soal-split .soal-kiri .soal-img { width: 100%; max-height: 180px; object-fit: contain; border-radius: 12px; background: var(--krem-2); padding: 8px; border: 2px solid var(--garis); }
+  .soal-split .opsi-kanan { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; justify-content: center; }
+  .soal-split .opsi-list { display: flex; flex-direction: column; gap: 10px; }
+  .soal-split .opsi-kanan .opsi { font-size: 18px; padding: 12px 18px; }
+  .soal-split .opsi-kanan .opsi .bul { width: 34px; height: 34px; flex: 0 0 34px; font-size: 16px; }
+  
+  .feedback { 
+    border-radius: 20px; padding: 16px 24px; font-size: 18px; font-weight: 700; 
+    line-height: 1.4; display: none; text-align: center; 
+    margin-top: 16px; margin-bottom: 10px; 
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05); 
+  }
+  .feedback.show { display: block; }
+  .feedback.ok { background: #ECFDF5; border: 3px solid var(--hijau-tua); color: var(--hijau-tua); }
+  .feedback.no { background: #FEF2F2; border: 3px solid var(--salah); color: var(--salah); }
+  
+  .kalimat-drag { font-size: 22px; line-height: 1.8; font-weight: 700; background: #fff; padding: 24px; border-radius: 24px; box-shadow: var(--bayang-kecil); border: 2px solid var(--garis); }
+  .blank-slot { display: inline-block; min-width: 100px; height: 36px; border-bottom: 4px dashed var(--primary); margin: 0 8px; vertical-align: middle; text-align: center; color: var(--primary-tua); font-weight: 900; cursor: pointer; background: var(--biru-muda); border-radius: 8px 8px 0 0; }
+  .blank-slot.terisi { border-bottom-style: solid; background: #D3EAFD; border-bottom-color: var(--primary-tua); }
+  .word-pool { display: flex; gap: 12px; margin-top: 20px; flex-wrap: wrap; justify-content: center; }
+  .word-btn { background: linear-gradient(135deg, var(--accent), var(--accent-tua)); border: none; padding: 10px 20px; font-size: 18px; font-weight: 800; border-radius: 14px; cursor: pointer; box-shadow: var(--bayang-kecil); transition: transform 0.2s; color: var(--tinta); }
+  .word-btn:active { transform: scale(0.95); }
+  .word-btn.dipakai { opacity: 0; pointer-events: none; }
+  
+  /* UKURAN GAME BERMAIN DIPERKECIL */
+  .jodoh-wrap { position: relative; display: flex; gap: 20px; flex: 1; min-height: 0; justify-content: center; z-index: 1; }
+  .jodoh-kol { flex: 1; display: flex; flex-direction: column; gap: 10px; justify-content: center; z-index: 2; }
+  .pair-item { 
+    position: relative; z-index: 2;
+    border: 3px solid var(--garis); background: #fff; border-radius: 20px; 
+    padding: 10px 16px; font-size: 16px; font-weight: 700; cursor: pointer; 
+    display: flex; align-items: center; justify-content: flex-start; gap: 14px; 
+    box-shadow: 0 4px 10px rgba(0,0,0,0.02); min-height: 65px; text-align: left; color: var(--tinta); transition: all 0.2s;
+  }
+  .pair-item:hover { border-color: var(--primary); background: var(--biru-muda); }
+  .pair-item img.img-pair { width: 40px; height: 40px; object-fit: contain; flex-shrink: 0; }
+  .pair-item.sel { border-color: var(--accent); background: #FFF9E6; transform: scale(1.02); box-shadow: var(--bayang-kecil); color: var(--accent-tua); }
+  .pair-item.locked { border-color: var(--hijau-tua); background: #ECFDF5; cursor: default; color: var(--hijau-tua); }
+  .pair-item.salah { border-color: var(--salah); background: #FEF2F2; animation: shake 0.4s; color: var(--salah); }
+  @keyframes shake { 0%,100%{transform:translateX(0);} 25%{transform:translateX(-5px);} 75%{transform:translateX(5px);} }
+  @keyframes drawLine { to { stroke-dashoffset: 0; } }
+  .jodoh-line { stroke-dasharray: 1000; stroke-dashoffset: 1000; animation: drawLine 0.5s ease-in-out forwards; }
+  
+  .scene-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; flex: 1; align-content: center; justify-content: center; overflow-y: auto; padding: 10px;}
+  .obj-card { 
+    background: #fff; border: 3px solid var(--garis); border-radius: 24px; 
+    padding: 16px; font-size: 20px; font-weight: 700; cursor: pointer; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center; 
+    gap: 12px; text-align: center; box-shadow: var(--bayang-kecil); transition: all 0.2s; color: var(--tinta);
+  }
+  .obj-card:hover { border-color: var(--primary); background: var(--biru-muda); }
+  .obj-card img.img-obj { width: auto; max-height: 100px; object-fit: contain; filter: drop-shadow(0 5px 8px rgba(0,0,0,0.1)); }
+  .obj-card.benar { border-color: var(--hijau-tua); background: #ECFDF5; color: var(--hijau-tua); }
+  .obj-card.salah { border-color: var(--salah); background: #FEF2F2; color: var(--salah); }
+  
+  .urut-item { 
+    background: #fff; border: 2px solid var(--garis); border-radius: 20px; padding: 10px 16px; 
+    font-size: 18px; font-weight: 700; display: flex; align-items: center; 
+    gap: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.02); margin-bottom: 8px; 
+    min-height: 55px; color: var(--tinta);
+  }
+  .urut-item .num { background: var(--primary); color: #fff; border-radius: 50%; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; flex-shrink: 0; }
+  .urut-item > span:nth-child(2) { flex: 1; line-height: 1.3; } 
+  .urut-item .btn-kuning { flex: 0 0 auto; width: 36px; height: 36px; padding: 0; display:flex; align-items:center; justify-content:center; font-size: 16px; color: var(--tinta); } 
+  
+  .bs-grid { display: flex; gap: 20px; }
+  .bs-btn { flex: 1; height: 100px; border-radius: 30px; border: none; font-size: 30px; font-weight: 900; color: #fff; cursor: pointer; box-shadow: var(--bayang-kecil); transition: all 0.2s; }
+  .bs-btn:active { transform: scale(0.95); }
+  .bs-benar { background: linear-gradient(135deg, var(--hijau), var(--hijau-tua)); }
+  .bs-salah { background: linear-gradient(135deg, var(--salah), #E74C3C); }
+  
+  /* ====== GAME: KUMPUL ====== */
+  .kumpul-hud { display: flex; justify-content: center; gap: 20px; align-items: center; margin-bottom: 10px; }
+  .kumpul-hud .hud-box { background: #fff; padding: 6px 20px; border-radius: 99px; font-weight: 900; font-size: 18px; box-shadow: var(--bayang-kecil); border: 3px solid var(--garis); }
+  .kumpul-hud .hud-time { color: var(--salah); border-color: var(--salah); }
+  .kumpul-hud .hud-coll { color: var(--hijau-tua); border-color: var(--hijau-tua); }
+  .kumpul-area { position: relative; width: 100%; flex: 1; min-height: 0; background: radial-gradient(circle at 50% 40%, #FFFFFF, var(--krem-2)); border: 4px dashed var(--accent); border-radius: 24px; overflow: hidden; box-shadow: inset 0 4px 14px rgba(0,0,0,0.04); }
+  .kumpul-flag { position: absolute; width: 80px; cursor: pointer; animation: floatUp 0.25s ease; }
+  .kumpul-flag:active { transform: scale(0.85); }
+  @keyframes floatUp { from { transform: scale(0) rotate(-15deg); } to { transform: scale(1) rotate(0); } }
+  .kumpul-flag img { width: 100%; height: auto; pointer-events: none; filter: drop-shadow(0 5px 8px rgba(0,0,0,0.25)); border-radius: 4px; }
+  
+  /* ====== GAME: SAMBUNG ====== */
+  .sambung-lirik { background: linear-gradient(135deg, var(--primary), var(--primary-tua)); color:#fff; padding: 20px 24px; border-radius: 24px; font-size: 22px; font-weight: 800; text-align:center; line-height:1.4; box-shadow: var(--bayang); }
+  .sambung-opsi { display:flex; flex-direction: column; gap: 10px; margin-top: 16px; }
+  .sambung-btn { background:#fff; border: 3px solid var(--garis); border-radius: 18px; padding: 14px 20px; font-size: 18px; font-weight: 700; cursor:pointer; color: var(--tinta); transition: all 0.2s; box-shadow: 0 4px 10px rgba(0,0,0,0.02); }
+  .sambung-btn:hover { border-color: var(--primary); background: var(--biru-muda); }
+  .sambung-btn.benar { border-color: var(--hijau-tua); background:#ECFDF5; color: var(--hijau-tua); }
+  .sambung-btn.salah { border-color: var(--salah); background:#FEF2F2; color: var(--salah); }
+  
+  /* ====== GAME: KELOMPOK (Sorting Kategori) ====== */
+  .kelompok-wrap { display: flex; gap: 16px; margin-top: 8px; flex:1; min-height:0;}
+  .kelompok-pool { border: 3px dashed var(--garis); padding: 16px; border-radius: 18px; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; background: #fff; min-height: 80px; align-content: flex-start;}
+  .kelompok-box { flex: 1; border: 4px solid var(--garis); padding: 14px; border-radius: 18px; background: var(--krem-2); text-align: center; display: flex; flex-direction: column; overflow-y: auto;}
+  .kelompok-box h3 { margin: 0 0 10px; color: var(--primary-tua); font-size: 18px; font-weight: 900; }
+  .kelompok-item { background: linear-gradient(135deg, var(--accent), var(--accent-tua)); color: var(--tinta); padding: 10px 16px; border-radius: 99px; font-weight: 800; cursor: pointer; transition: all 0.2s; box-shadow: var(--bayang-kecil); font-size: 16px; user-select: none;}
+  .kelompok-item:active { transform: scale(0.95); }
+  .kelompok-item.sel { transform: scale(1.1); box-shadow: 0 0 0 4px #fff, 0 0 0 8px var(--primary); z-index: 10; position: relative;}
+
+  /* ====== EFEK & MODAL ====== */
+  #efek-salah { position: absolute; inset: 0; z-index: 45; pointer-events: none; background: rgba(255, 107, 107, 0); transition: background 0.6s ease-out; }
+  #efek-salah.nyala { background: rgba(255, 107, 107, 0.3); transition: none; }
+  .confetti { position: absolute; width: 12px; height: 12px; z-index: 45; opacity: 1; pointer-events: none; animation: pop 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+  @keyframes pop { 0% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 100% { transform: translate(calc(-50% + var(--tx)), calc(-50% + var(--ty))) scale(0) rotate(720deg); opacity: 0; } }
+  .modal-bg { position: absolute; inset: 0; z-index: 50; background: rgba(30, 30, 30, 0.8); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; }
+  .modal-bg.show { display: flex; }
+  .modal { width: 800px; max-width: 90%; max-height: 85%; overflow: auto; background: #FFFFFF; border-radius: 40px; padding: 40px; position: relative; box-shadow: 0 25px 50px rgba(0,0,0,0.4); border: 3px solid var(--primary); }
+  .modal h3 { margin: 0 0 16px; font-size: 32px; color: var(--primary-tua); font-weight: 900; }
+  .modal p, .modal li, .info-tabel td { font-size: 20px; line-height: 1.6; color: var(--tinta); }
+  .modal .tutup { position: absolute; top: 24px; right: 24px; width: 44px; height: 44px; border-radius: 50%; font-weight: bold; background: var(--krem-2); color: var(--salah); display: flex; align-items: center; justify-content: center; cursor: pointer; border: 2px solid var(--garis); font-size: 20px; }
+  .input-form { width: 100%; padding: 16px 20px; font-size: 22px; font-family: inherit; font-weight: 700; color: var(--tinta); border: 3px solid var(--garis); border-radius: 16px; margin-bottom: 16px; outline: none; transition: border 0.3s; background: #fff; }
+  .input-form:focus { border-color: var(--primary); background: var(--biru-muda); }
+  .info-tabel { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
+  .info-tabel td { border: 2px solid var(--garis); padding: 12px 16px; }
+  .info-tabel td:first-child { font-weight: 800; background: var(--krem-2); width: 40%; color: var(--primary-tua); }
+  .akhir { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; text-align: center; }
+  .akhir h2 { font-size: 46px; color: var(--primary-tua); margin: 0; font-weight: 900; }
+  .akhir .skor-angka { font-size: 70px; font-weight: 900; color: var(--accent-tua); margin: 5px 0; text-shadow: 0 4px 10px rgba(80, 206, 220, 0.3); }
+  .akhir .identitas { font-size: 22px; font-weight: 700; background: #FFF9E6; padding: 10px 24px; border-radius: 99px; color: #856404; border: 2px solid #F1C40F; box-shadow: var(--bayang-kecil); }
+  
+  /* ====== AUDIO WIDGET (Diperkecil & Posisi Kiri Atas) ====== */
+  #audio-widget {
+    position: absolute; top: 80px; left: 20px; z-index: 60; background: #FFFFFF; padding: 4px 10px; border-radius: 99px;
+    display: none; align-items: center; gap: 6px; box-shadow: var(--bayang-kecil); border: 2px solid var(--garis);
+  }
+  .icon-btn-small { width: 24px; height: 32px; border: none; border-radius: 50%; background: var(--krem-2); color: var(--primary); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  #volume-slider { -webkit-appearance: none; appearance: none; width: 70px; height: 6px; background: var(--garis); border-radius: 5px; outline: none; cursor: pointer; }
+  #volume-slider::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 16px; border-radius: 50%; background: var(--primary); cursor: pointer; border: 2px solid #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+</style>
+</head>
+<body>
+<div id="viewport">
+  <div id="stage">
+    
+    <div id="user-badge" style="position: absolute; top: 18px; left: 550px; z-index: 10; display: none; background: var(--accent); color: var(--tinta); padding: 8px 20px; border-radius: 99px; font-weight: bold; font-size: 18px; box-shadow: var(--bayang-kecil); border: 3px solid #FFF;">
+      👤 <span id="nama-display">Siswa</span>
+    </div>
+
+    <div id="audio-widget">
+      <button class="icon-btn-small" id="sound-toggle" data-sfx="no" onclick="toggleSound()" title="Suara">🔊</button>
+      <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1" oninput="changeVolume(this.value)">
+    </div>
+
+    <div id="footer-teks" style="position: absolute; bottom: 12px; width: 100%; text-align: center; font-size: 16px; font-weight: 800; color: var(--tinta); z-index: 99; pointer-events: none; opacity: 0.6;">
+      MPI Inflasi dikembangkan oleh Sjogohera. 2026
+    </div>
+
+    <div id="efek-salah"></div>
+    
+    <section id="scr-judul" class="screen active">
+      <div class="bg"><img id="cfg-bgjudul" src="./asset/img/bg_judul.png" alt="" onerror="imgErr(this)"></div>
+      <div class="judul-topright">
+        <button class="icon-btn" data-sfx onclick="openModal('modal-info')" title="Informasi">i</button>
+        <button class="icon-btn" data-sfx onclick="openModal('modal-dev')" title="Pengembang">★</button>
+      </div>
+      <div class="judul-center">
+        <h1 class="judul-utama" id="cfg-judul">INFLASI</h1>
+        <p class="judul-sub" id="cfg-subjudul">JENIS-JENIS INFLASI</p>
+        <button class="btn btn-kuning mulai-btn" data-sfx onclick="openModal('modal-login')">▶ MULAI</button>
+      </div>
+    </section>
+    
+    <section id="scr-menu" class="screen">
+      <div class="bg"></div>
+      <div class="topbar">
+        <div class="judul-bar"><span id="cfg-judul-menu">Materi Inflasi</span><small>Peta Aktivitas Belajar</small></div>
+        <div class="spacer"></div>
+        <button class="icon-btn" data-sfx onclick="goJudul()" title="Beranda">⌂</button>
+      </div>
+      <div class="menu-head">
+        <h2>Alur Pembelajaran Interaktif</h2>
+        <p>Pahami materinya di sesi <b>Belajar</b>, taklukkan tantangannya saat <b>Bermain</b>, buktikan pemahamanmu dengan <b>Berlatih</b>.</p>
+      </div>
+      <div class="menu-cards">
+        <button class="menu-card mc-belajar" data-sfx onclick="startBelajar()">
+          <img src="./asset/img/menu_belajar.png" class="img-ikon" alt="Belajar" style="border-radius:50%; background:#fff; padding:10px;" onerror="imgErr(this)">
+          <div class="mc-judul">Belajar</div>
+          <div class="mc-sub">Pelajari Materi</div>
+        </button>
+        <button class="menu-card mc-bermain" data-sfx onclick="tryStartBermain()">
+          <img src="./asset/img/menu_bermain.png" class="img-ikon" alt="Bermain" style="border-radius:50%; background:#fff; padding:10px;" onerror="imgErr(this)">
+          <div class="mc-judul">Bermain</div>
+          <div class="mc-sub">Asah Ketangkasan Otak</div>
+        </button>
+        <button class="menu-card mc-berlatih" data-sfx onclick="tryStartBerlatih()">
+          <img src="./asset/img/menu_berlatih.png" class="img-ikon" alt="Berlatih" style="border-radius:50%; background:#fff; padding:10px;" onerror="imgErr(this)">
+          <div class="mc-judul">Berlatih</div>
+          <div class="mc-sub">Taklukan Kuis Evaluasi</div>
+        </button>
+      </div>
+    </section>
+    
+    <section id="scr-belajar" class="screen">
+      <div class="bg"></div>
+      <div class="topbar">
+        <div class="judul-bar">Belajar<small id="belajar-sub">Materi</small></div>
+        <div class="spacer"></div>
+        <div class="progress-wrap"><span class="progress-label" id="belajar-plabel">1/4</span><div class="progress-track"><div class="progress-fill" id="belajar-pfill"></div></div></div>
+        <button class="icon-btn" data-sfx onclick="checkAndGoMenu('belajar')" title="Menu">☰</button>
+      </div>
+      <div class="content" id="belajar-content"></div>
+      <div class="navbar">
+        <button class="nav-btn nav-back" id="belajar-prev" data-sfx onclick="belajarPrev()">◀ Sebelumnya</button>
+        <button class="nav-btn nav-next" id="belajar-next" data-sfx onclick="belajarNext()">Selanjutnya ▶</button>
+      </div>
+    </section>
+    
+    <section id="scr-bermain" class="screen">
+      <div class="bg"></div>
+      <div class="topbar">
+        <div class="judul-bar">Bermain<small id="bermain-sub">Aktivitas Interaktif</small></div>
+        <div class="spacer"></div>
+        <div class="skor-badge" style="border-color:var(--salah); color:var(--salah); background:#FEF2F2;">⏱️ <span id="bermain-waktu">300</span>s</div>
+        <div class="skor-badge">🏆 Skor: <span id="skor-bermain-angka">0</span></div>
+        <div class="progress-wrap" style="margin-left:10px"><span class="progress-label" id="bermain-plabel">1/10</span><div class="progress-track" style="width:120px"><div class="progress-fill" id="bermain-pfill"></div></div></div>
+        <button class="icon-btn" data-sfx onclick="checkAndGoMenu('bermain')" title="Menu">☰</button>
+      </div>
+      <div class="content" id="bermain-content"></div>
+      <div class="navbar">
+        <button class="nav-btn nav-back" data-sfx onclick="bermainPrev()">◀ Sebelumnya</button>
+        <button class="nav-btn nav-next" id="bermain-next" data-sfx onclick="bermainNext()" disabled>Selanjutnya ▶</button>
+      </div>
+    </section>
+    
+    <section id="scr-berlatih" class="screen">
+      <div class="bg"></div>
+      <div class="topbar">
+        <div class="judul-bar">Berlatih<small id="berlatih-sub">Uji Pemahaman</small></div>
+        <div class="spacer"></div>
+        <div class="progress-wrap"><span class="progress-label" id="berlatih-plabel">1/10</span><div class="progress-track" style="width:160px"><div class="progress-fill" id="berlatih-pfill"></div></div></div>
+        <button class="icon-btn" data-sfx onclick="checkAndGoMenu('berlatih')" title="Menu">☰</button>
+      </div>
+      <div class="content" id="berlatih-content"></div>
+      <div class="navbar">
+        <button class="nav-btn nav-back" data-sfx onclick="berlatihPrev()">◀ Sebelumnya</button>
+        <button class="nav-btn nav-next" id="berlatih-next" data-sfx onclick="berlatihNext()" disabled>Selanjutnya ▶</button>
+      </div>
+    </section>
+    
+    <div class="modal-bg" id="modal-login">
+      <div class="modal" style="width: 550px; text-align: center; padding: 50px;">
+        <button class="tutup" data-sfx onclick="closeModal('modal-login')">✕</button>
+        <h3>Selamat Datang!</h3>
+        <p style="margin-bottom:24px;">Silakan isi identitasmu sebelum mulai belajar.</p>
+        <input type="text" id="in-nama" class="input-form" placeholder="Nama Lengkap" required>
+        <input type="text" id="in-sekolah" class="input-form" placeholder="Kelas/Sekolah">
+        <div id="login-pesan" style="color:var(--salah); font-weight:bold; margin-bottom:16px; display:none;">⚠️ Nama belum diisi!</div>
+        <button class="btn btn-kuning" style="width:100%; height:64px; font-size:24px; margin-top:10px;" data-sfx onclick="simpanIdentitasAndShowWelcome()">Mulai Belajar</button>
+      </div>
+    </div>
+
+    <div class="modal-bg" id="modal-welcome">
+      <div class="modal" style="width: 500px; text-align: center; padding: 40px;">
+        <div style="font-size:70px; margin-bottom:10px;">🎉</div>
+        <h3 style="color:var(--primary-tua);">Selamat Datang, <span id="welcome-name">Siswa</span>!</h3>
+        <p style="margin-bottom:30px; font-size:22px;">Hari ini kita akan belajar tentang <b>Inflasi</b>. Setelah mempelajari materi ini kalian diharapkan mampu <b>menjelaskan pengertian inflasi dan penyebabnya berdasarkan fenomena yang terjadi.</b> Sudah siap menaklukkan tantangannya?</p>
+        <button class="btn btn-kuning" style="width:100%; height:60px; font-size:22px;" data-sfx onclick="tutupWelcome()">Siap, Gas Belajar 🚀</button>
+      </div>
+    </div>
+    
+    <div class="modal-bg" id="modal-zoom">
+      <div class="modal" style="width: 90%; max-width: 1000px; padding: 10px; text-align: center; background: transparent; border: none; box-shadow: none;">
+        <button class="tutup" data-sfx onclick="closeModal('modal-zoom')" style="position: fixed; top: 25px; right: 25px; width: 50px; height: 50px; font-size: 24px; background: #fff; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2);">✕</button>
+        <img id="zoomed-image" src="" style="width: 100%; max-height: 85vh; object-fit: contain; border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.5); background: #fff;" alt="Zoomed">
+      </div>
+    </div>
+
+    <div class="modal-bg" id="modal-info">
+      <div class="modal">
+        <button class="tutup" data-sfx onclick="closeModal('modal-info')">✕</button>
+        <h3>Informasi Materi</h3>
+        <table class="info-tabel">
+          <tr><td>Fase / Kelas</td><td id="cfg-fase">Fase ... • Kelas ...</td></tr>
+          <tr><td>Mata Pelajaran</td><td id="cfg-mapel">Mata Pelajaran</td></tr>
+          <tr><td>Unit</td><td id="cfg-unit">Unit</td></tr>
+          <tr><td>Sub Unit</td><td id="cfg-subunit">Sub Unit</td></tr>
+          <tr><td>Tujuan Pembelajaran</td><td id="cfg-tp">Tujuan Pembelajaran (TP)</td></tr>
+        </table>
+      </div>
+    </div>
+    
+    <div class="modal-bg" id="modal-dev">
+      <div class="modal" style="width: 750px; padding: 40px;">
+        <button class="tutup" data-sfx onclick="closeModal('modal-dev')">✕</button>
+        <h3 style="text-align: center; margin-bottom: 24px;">Profil Pengembang</h3>
+        <div style="display: flex; gap: 30px; align-items: center; background: var(--krem-2); padding: 30px; border-radius: 32px; box-shadow: inset 0 2px 10px rgba(0,0,0,0.02); border: 2px solid var(--garis);">
+          <div style="flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 14px;">
+            <div style="position: relative;">
+              <img id="cfg-foto" src="./asset/img/profil.png" alt="Foto Pengembang" style="width: 160px; height: 200px; border-radius: 16px; object-fit: cover; box-shadow: var(--bayang); background: var(--primary); border: 4px solid #fff;" onerror="imgErr(this)">
+              <div style="position: absolute; bottom: -8px; right: -8px; background: var(--hijau-tua); color: white; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 3px solid #fff; box-shadow: var(--bayang-kecil);" title="Terverifikasi">✓</div>
+            </div>
+            <div id="cfg-nama2" style="background: var(--accent); color: var(--tinta); font-weight: 900; padding: 6px 18px; border-radius: 99px; font-size: 15px; box-shadow: var(--bayang-kecil);">Nama Pengembang</div>
+          </div>
+          <div style="flex: 1;">
+            <table class="info-tabel" style="margin-top: 0; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+              <tr><td style="width: 35%;">Nama</td><td id="cfg-nama" style="font-weight: 800; color: var(--primary-tua); font-size: 22px;">Nama Pengembang</td></tr>
+              <tr><td>Instansi</td><td id="cfg-instansi">Nama Instansi / Sekolah</td></tr>
+              <tr><td>Jenis</td><td id="cfg-jenis">Media Pembelajaran Interaktif (MPI)</td></tr>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-bg" id="modal-warning">
+      <div class="modal" style="width: 550px; text-align: center; padding: 40px;">
+        <div style="font-size:70px; margin-bottom:10px;">🔒</div>
+        <h3 id="warn-title" style="color:var(--salah);">Peringatan</h3>
+        <p id="warn-msg" style="margin-bottom:24px; font-size:22px;">Pesan</p>
+        <button class="btn btn-kuning" style="width:100%; height:60px; font-size:22px;" data-sfx onclick="closeModal('modal-warning')">Tutup</button>
+      </div>
+    </div>
+
+    <div class="modal-bg" id="modal-confirm">
+      <div class="modal" style="width: 550px; text-align: center; padding: 40px;">
+        <div style="font-size:70px; margin-bottom:10px;">❓</div>
+        <h3 style="color:var(--primary-tua);">Konfirmasi</h3>
+        <p id="confirm-msg" style="margin-bottom:24px; font-size:22px;">Kamu belum menyelesaikan aktivitas ini. Yakin ingin keluar?</p>
+        <div style="display:flex; gap:20px; justify-content:center; margin-top:20px;">
+          <button class="btn btn-merah" style="height:60px; font-size:22px; flex:1;" data-sfx onclick="executeConfirmYes()">Keluar</button>
+          <button class="btn btn-biru" style="height:60px; font-size:22px; flex:1;" data-sfx onclick="closeModal('modal-confirm')">Lanjut</button>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</div>
+
+<script>
+/* ##############################################################
+   #  BAGIAN A — KONFIGURASI MATERI & SOAL                     #
+   ############################################################## */
+
+const CONFIG = {
+  judul:    "Uang, Inflasi, & Kebijakan Moneter",
+  subJudul: "Inflasi",
+  fase:     "Fase F • Kelas XI",
+  mapel:    "Ekonomi",
+  unit:     "Uang, Inflasi, dan Kebijakan Moneter",
+  subUnit:  "Inflasi",
+  tp:       "Menjelaskan pengertian inflasi dan penyebabnya berdasarkan fenomena yang terjadi.",
+  logo:     "./asset/img/logo.png",
+  bgJudul:  "./asset/img/bg_judul.png",
+  profil: {
+    nama:     "Samuel Jogo Hera, S.Pd., Gr.",
+    instansi: "SMA NEGERI 1 ILE APE",
+    jenis:    "Media Pembelajaran Interaktif (MPI)",
+    foto:     "./asset/img/profil.png"
+  }
+};
+
+/* ARRAY MATERI LENGKAP */
+const MATERI = [
+  { judul: "Pengertian Inflasi", mediaType: "video", mediaPath: "./asset/img/inflasi_intro.mp4",
+    intro: "Pernahkah kamu menyadari harga barang di sekitarmu terus naik dari tahun ke tahun? Yuk, kita pahami apa itu sebenarnya inflasi!",
+    isi: "<p>Inflasi adalah kecenderungan naiknya harga barang dan jasa pada umumnya yang berlangsung secara terus menerus di dalam suatu perekonomian.</p><p><b>Tiga komponen utama yang harus dipenuhi agar dapat dikatakan inflasi, yaitu:</b><br>1. Kenaikan harga<br>2. Bersifat umum<br>3. Berlangsung terus menerus</p><p>Inflasi dalam tingkat yang wajar dan terkendali (2% s.d 4% per tahun), justru menjadi penanda bahwa roda perekonomian suatu negara sedang tumbuh. Momen inflasi yang dibarengi dengan naiknya harga komoditas global atau masuknya investasi asing justru mendatangkan keuntungan besar bagi negara dan produsen lokal (eksportir). Kenaikan harga secara bertahap ini akan memotivasi produsen untuk memproduksi lebih banyak barang dan menyerap tenaga kerja.</p><p><i><b>Inflasi baru berubah menjadi fenomena yang sangat merugikan</b> apabila lajunya sudah tidak terkendali (hiperinflasi), melesat jauh meninggalkan kenaikan upah, dan menghancurkan daya beli masyarakat kelas menengah ke bawah.</i></p>",
+    kuis: { judul: "Uji Pemahamanmu", tanya: "Jika harga bahan bakar naik tajam selama satu bulan, tetapi harga barang dan jasa lain tidak ikut naik, maka kondisi tersebut sudah dapat disebut inflasi.", o: ["BENAR", "SALAH"], j: 1, bahas: "Inflasi harus bersifat umum (mencakup banyak barang dan jasa) dan bukan hanya kenaikan harga pada satu komoditas tertentu. Selain itu, kenaikan harga juga harus berlangsung terus-menerus." } 
+  },
+
+  { judul: "Fenomena Kenaikan Harga di Sekitar Kita", mediaType: "img", mediaPath: "./asset/img/fenomena_lebaran.png",
+    intro: "Pernahkah kamu menyadari harga kebutuhan melonjak tajam saat mendekati hari raya? Apakah itu termasuk inflasi? Mari kita bedah kasusnya bersama!",
+    isi: "<p><b>Studi Kasus 1: Fenomena \"Harga Lebaran\" (Kenaikan Harga Musiman)</b></p><p><b>Situasi:</b> Setiap menjelang Hari Raya Idul Fitri (Lebaran) atau Tahun Baru, kalian pasti menyadari bahwa harga-harga mendadak mahal. Harga daging sapi yang biasanya Rp120.000/kg bisa melonjak menjadi Rp160.000/kg. Begitu juga dengan harga daging ayam, telur, hingga tiket kereta api dan pesawat yang harganya bisa naik dua kali lipat.</p><p><b>Pertanyaan Kritis:</b> Apakah lonjakan harga menjelang Lebaran ini bisa kita sebut sebagai inflasi?</p><p><b>Analisis Ekonomi:</b> Jawabannya adalah <b>BUKAN INFLASI MAKRO</b> (hanya gejolak harga sementara). Mari kita cek kembali tiga syarat inflasi:</p><ul><li>Apakah ada kenaikan harga? <b>Ya.</b></li><li>Apakah bersifat umum? <b>Ya</b>, hampir semua kebutuhan pokok dan transportasi naik.</li><li>Apakah berlangsung terus menerus? <b>TIDAK.</b></li></ul><p>Kenaikan harga ini terjadi karena lonjakan permintaan sesaat dari masyarakat yang memborong barang untuk persiapan hari raya. Setelah Lebaran selesai dan aktivitas kembali normal, harga daging dan tiket pesawat akan berangsur-angsur turun ke posisi semula. Karena sifatnya yang sementara dan tidak terus-menerus, fenomena ini tidak memenuhi syarat mutlak inflasi.</p>",
+    kuis: { judul: "Uji Pemahamanmu", tanya: "Kenaikan harga daging ayam dan tiket pesawat menjelang Lebaran merupakan contoh nyata dari inflasi yang harus segera ditangani oleh pemerintah.", o: ["BENAR", "SALAH"], j: 1, bahas: "Kenaikan harga saat Lebaran sifatnya hanya sementara karena lonjakan permintaan sesaat, sehingga TIDAK memenuhi syarat inflasi yang harus berlangsung terus-menerus." } 
+  },
+
+  { judul: "Penyebab Inflasi", mediaType: "carousel", mediaPath: ["./asset/img/penyebab_1.png", "./asset/img/penyebab_2.png", "./asset/img/penyebab_3.png", "./asset/img/penyebab_4.png"],
+    intro: "Mari pelajari faktor penyebab harga barang dan jasa bisa melambung tinggi !<br><small style=\"font-size: 16px; font-weight: 500; opacity: 0.9; display: block; margin-top: 8px;\">👉 Geser dan zoom gambar di samping untuk melihat ilustrasi tiap penyebab.</small>",
+    isi: "<p><b>1. Kelebihan Permintaan (<i>Demand Pull Inflation</i>)</b><br>Inflasi yang terjadi karena kelebihan permintaan atas barang dan jasa. Kelebihan permintaan yang tidak dapat dipenuhi produsen tersebut tentu akan mendorong kenaikan harga-harga, karena permintaan lebih besar.</p><p><b>2. Kenaikan Biaya Produksi (<i>Cost Push Inflation</i>)</b><br>Inflasi yang terjadi karena kenaikan biaya produksi. Kenaikan biaya produksi akan mengakibatkan turunnya jumlah produksi sehingga penawaran menjadi berkurang, jika penawaran berkurang sedangkan permintaan diasumsikan tetap, maka akibatnya harga-harga akan naik daripada penawaran. Kenaikan biaya produksi (<i>cost-push inflation</i>) ini dipicu oleh <b>depresiasi nilai tukar rupiah, meningkatnya harga komoditas yang diatur pemerintah, bencana alam</b>.</p><p><b>3. Sikap Konsumen/Produsen Terhadap Informasi Kenaikan Harga</b><br>Penyebab ini dipicu oleh reaksi psikologis pasar terhadap informasi rencana kenaikan harga di masa depan. Dari sisi konsumen, muncul aksi borong (<i>panic buying</i>) karena takut harga menjadi mahal, yang seketika memicu lonjakan permintaan. Sebaliknya, dari sisi produsen, mereka justru menahan atau menimbun stok barang demi mengejar keuntungan yang lebih tinggi nanti. Akibatnya, permintaan yang melonjak tajam bertemu dengan kelangkaan barang di pasar, sehingga secara otomatis memaksa harga-harga benar-benar melesat naik sebelum waktunya.</p><p><b>4. Kebijakan Pemerintah yang kurang tepat</b><br> Kebijakan pemerintah/Bank Indonesia yang kurang tepat, terutama di sektor keuangan, dapat menjadi pemicu utama timbulnya inflasi di suatu negara. Misalnya, Pencetakan Uang Baru untuk Menutup Defisit, Penurunan Suku Bunga Acuan yang Terlalu Rendah dan Lama, Penurunan Batas Cadangan Kas Bank (Giro Wajib Minimum) yang Ekstrem, Bantuan Tunai atau Subsidi Masif Tanpa Peningkatan Kapasitas Produksi serta penerapan aturan pemberian kredit yang terlalu longgar. Rangkaian kebijakan ini menyebabkan jumlah uang yang beredar melonjak tajam melampaui ketersediaan barang dan jasa di pasar, sehingga memicu ledakan daya beli yang secara otomatis mendorong kenaikan harga-harga secara umum.</p>",
+    kuis: { judul: "Uji Pemahamanmu", tanya: "Naiknya harga bahan baku yang digunakan perusahaan dapat menyebabkan inflasi meskipun permintaan masyarakat terhadap barang tidak mengalami peningkatan.", o: ["BENAR", "SALAH"], j: 0, bahas: "Kenaikan harga bahan baku meningkatkan biaya produksi, sehingga produsen cenderung menaikkan harga jual. Kondisi ini merupakan <i>cost-push inflation</i>." } 
+  },
+
+  { judul: "Fenomena Terkini : Wajah Lain Inflasi di Sekitar Kita", mediaType: "carousel", mediaPath: ["./asset/img/fenomena_1.png", "./asset/img/fenomena_2.png", "./asset/img/fenomena_3.png"],
+    intro: " Jangan kira inflasi cuma hafalan! Kenyataannya, ilmu ekonomi itu nyata dan terjadi dikita!<br><small style=\"font-size: 16px; font-weight: 500; opacity: 0.9; display: block; margin-top: 8px;\">👉 Geser dan zoom gambar di samping untuk melihat ilustrasi tiap fenomena.</small>",
+    isi: "<p><b>1. Fenomena Revenge Spending (<i>Balas Dendam Belanja</i>)</b><br> Fenomena meledaknya hasrat belanja masyarakat secara serentak pasca-berakhirnya krisis/pandemi (contoh: war tiket konser, liburan).</p><p><b>2. Efek Kupu-Kupu Geopolitik Global</b><br> Krisis/perang di suatu negara (misal: perang di Ukraina penghasil gandum atau Iran di jalur minyak bumi) yang mengacaukan pasokan dunia. </b>.</p><p><b>3. Shrinkflation: Inflasi Terselubung</b><br> Strategi mengecilkan ukuran, berat, atau isi produk jajanan/barang, tetapi dijual dengan harga yang sama (contoh: isi snack makin sedikit).</p>",
+    kuis: { judul: "Uji Pemahamanmu", tanya: "Naiknya harga bahan baku yang digunakan perusahaan dapat menyebabkan inflasi meskipun permintaan masyarakat terhadap barang tidak mengalami peningkatan.", o: ["BENAR", "SALAH"], j: 0, bahas: "Kenaikan harga bahan baku meningkatkan biaya produksi, sehingga produsen cenderung menaikkan harga jual. Kondisi ini merupakan <i>cost-push inflation</i>." } 
+  },
+];
+
+/* 10 GAME BERMAIN */
+const dataBermain = [
+  { t:'klik', sub:'Panic Buying Hunter', ins:'Pilih 4 kartu yang dapat menyebabkan inflasi!',
+    opsi:[
+      {imgPath:'./asset/img/klik1_1.png', t:'Memborong beras', b:true, msg:'Benar! Memborong memicu lonjakan harga.'},
+      {imgPath:'./asset/img/klik1_2.png', t:'Menabung di bank', b:false, msg:'Menabung justru mengurangi peredaran uang.'},
+      {imgPath:'./asset/img/klik1_3.png', t:'Panic buying minyak goreng', b:true, msg:'Benar! Kepanikan membuat stok langka dan harga naik.'},
+      {imgPath:'./asset/img/klik1_4.png', t:'Membeli secukupnya', b:false, msg:'Membeli secukupnya menjaga kestabilan harga.'},
+      {imgPath:'./asset/img/klik1_5.png', t:'Beli 20 dus mie karena takut', b:true, msg:'Benar! Spekulasi konsumen memicu inflasi.'},
+      {imgPath:'./asset/img/klik1_6.png', t:'Membandingkan harga', b:false, msg:'Ini perilaku rasional, bukan penyebab inflasi.'},
+      {imgPath:'./asset/img/klik1_7.png', t:'Membeli gula berlebihan', b:true, msg:'Benar! Memborong barang akan memicu kelangkaan.'},
+      {imgPath:'./asset/img/klik1_8.png', t:'Menyusun anggaran', b:false, msg:'Ini membantu mengontrol pengeluaran.'}
+    ] },
+  { t:'klik', sub:'Escape from Hyperinflation', ins:'Klik satu pintu yang menunjukkan kondisi terkendali dan aman dari hiperinflasi!',
+    opsi:[
+      {imgPath:'./asset/img/klik2_1.png', t:'Inflasi mencapai 150% per tahun', b:false, msg:'Ini adalah hiperinflasi yang merusak!'},
+      {imgPath:'./asset/img/klik2_2.png', t:'Inflasi kisaran 3% per tahun', b:true, msg:'Tepat! Ini adalah kondisi inflasi yang normal dan terkendali.'},
+      {imgPath:'./asset/img/klik2_3.png', t:'Harga barang naik cepat tak terkendali', b:false, msg:'Ini merupakan tanda bahaya hiperinflasi.'},
+      {imgPath:'./asset/img/klik2_4.png', t:'Kehilangan kepercayaan pada uang', b:false, msg:'Ini dampak buruk jika terjadi hiperinflasi.'}
+    ] },
+  { t:'klik', sub:'Selamatkan Negara', ins:'Pilih dampak inflasi yang benar!',
+    opsi:[
+      {imgPath:'./asset/img/klik3_1.png', t:'Daya beli turun', b:true, msg:'Benar! Kenaikan harga membuat daya beli menurun.'},
+      {imgPath:'./asset/img/klik3_2.png', t:'Minat menabung meningkat', b:false, msg:'Justru sebaliknya, minat menabung akan menurun.'},
+      {imgPath:'./asset/img/klik3_3.png', t:'Surplus perdagangan', b:false, msg:'Inflasi membuat barang mahal dan memicu defisit ekspor.'}
+    ] },
+  { t:'klik', sub:'Fakta atau Bukan Inflasi?', ins:'Pilih 3 kartu yang menunjukkan inflasi! Hindari yang bukan.',
+    opsi:[
+      {imgPath:'./asset/img/klik4_1.png', t:'Harga beras, minyak, dan gula naik beberapa bulan', b:true, msg:'Benar! Ini kenaikan harga umum dan terus-menerus.'},
+      {imgPath:'./asset/img/klik4_2.png', t:'Harga cabai naik karena gagal panen selama 1 minggu', b:false, msg:'Salah. Kenaikan hanya sesaat dan satu komoditas saja.'},
+      {imgPath:'./asset/img/klik4_3.png', t:'Harga barang pokok naik terus menerus', b:true, msg:'Benar! Bersifat umum dan terus menerus.'},
+      {imgPath:'./asset/img/klik4_4.png', t:'Toko memberi diskon besar-besaran akhir tahun', b:false, msg:'Salah. Ini justru penurunan harga sesaat.'},
+      {imgPath:'./asset/img/klik4_5.png', t:'Harga barang jasa naik umum selama setahun', b:true, msg:'Benar! Ini adalah definisi dasar dari inflasi.'}
+    ] },
+  { t:'jodoh', sub:'Detektif Inflasi', ins:'Cocokkan kasus di sebelah kiri dengan Penyebab inflasinya!',
+    pairs:[
+      {n:1, teks:'Permintaan masyarakat meningkat drastis.'}, {n:2, teks:'Harga bahan bakar minyak (BBM) naik.'}, {n:3, teks:'Pemerintah mencetak uang baru terlalu banyak.'}, {n:4, teks:'Konsumen memborong barang secara panik.'}
+    ],
+    imgs:[
+      {n:1, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>📈</text></svg>", name:'Demand Pull Inflation'},
+      {n:2, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>⛽</text></svg>", name:'Cost Push Inflation'},
+      {n:3, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>🖨️</text></svg>", name:'Kebijakan Pemerintah yang Kurang Tepat'},
+      {n:4, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>🛒</text></svg>", name:'Sikap Konsumen'}
+    ] },
+  { t:'kelompok', sub:'Kelompokkan Penyebab Inflasi', ins:'Ketuk kartu penyebab di atas, lalu ketuk kotak kategori yang tepat di bawah!',
+    kategori: ['Demand Pull Inflation', 'Cost Push Inflation'],
+    items: [
+      {k:0, t:'Permintaan masyarakat meningkat'}, {k:0, t:'Panic buying'}, {k:0, t:'Belanja hari raya'},
+      {k:1, t:'Biaya produksi naik'}, {k:1, t:'Upah tenaga kerja naik'}, {k:1, t:'Harga bahan baku naik'}
+    ] },
+  { t:'urut', sub:'Balapan Inflasi', ins:'Urutkan tingkatan inflasi dari yang TERENDAH ke TERTINGGI!',
+    urut:['Inflasi Ringan', 'Inflasi Sedang', 'Inflasi Tinggi', 'Hiperinflasi'] },
+  { t:'urut', sub:'Susun Rantai Inflasi', ins:'Susun kartu menjadi alur kejadian inflasi yang benar (sebab-akibat)!',
+    urut:['Barang langka', 'Permintaan meningkat', 'Harga naik', 'Inflasi'] },
+  { t:'sambung', sub:'Jejak Inflasi Dalam Negeri', ins:'Sambungkan kartu-kartu hingga membentuk alur inflasi domestik yang benar!',
+    hasil:'Pemerintah mencetak uang baru → Jumlah uang beredar meningkat → Daya beli masyarakat meningkat → Permintaan barang meningkat → Harga barang naik → Domestic Inflation',
+    steps:[
+      { prev:'Pemerintah mencetak uang baru...', benar:'Jumlah uang beredar meningkat', salah:['Jumlah barang di pasar melimpah', 'Nilai uang semakin kuat'] },
+      { prev:'Jumlah uang beredar meningkat...', benar:'Daya beli masyarakat meningkat', salah:['Masyarakat berhenti berbelanja', 'Pengusaha menurunkan gaji'] },
+      { prev:'Daya beli masyarakat meningkat...', benar:'Permintaan barang meningkat', salah:['Pabrik mengurangi produksi', 'Impor barang dihentikan'] },
+      { prev:'Permintaan barang meningkat...', benar:'Harga barang naik', salah:['Barang menjadi murah', 'Terjadi deflasi'] },
+      { prev:'Harga barang naik...', benar:'Domestic Inflation', salah:['Imported Inflation', 'Stabilitas Ekonomi'] }
+    ] },
+  { t:'sambung', sub:'Jejak Inflasi Global', ins:'Sambungkan setiap kartu membentuk alur inflasi dari luar negeri sampai berdampak pada Indonesia!',
+    hasil:'Harga barang di luar negeri naik → Harga bahan baku impor naik → Biaya produksi dalam negeri meningkat → Harga barang dalam negeri naik → Imported Inflation',
+    steps:[
+      { prev:'Harga barang di luar negeri naik...', benar:'Harga bahan baku impor naik', salah:['Harga barang impor menjadi murah', 'Negara menghentikan ekspor'] },
+      { prev:'Harga bahan baku impor naik...', benar:'Biaya produksi dalam negeri meningkat', salah:['Biaya produksi menjadi lebih efisien', 'Pengusaha menambah pekerja'] },
+      { prev:'Biaya produksi dalam negeri meningkat...', benar:'Harga barang dalam negeri naik', salah:['Barang gratis dibagikan', 'Pemerintah memberikan subsidi penuh'] },
+      { prev:'Harga barang dalam negeri naik...', benar:'Imported Inflation', salah:['Domestic Inflation', 'Hiperinflasi'] }
+    ] }
+];
+
+/* ==============================================================
+   DATA MENU BERLATIH (10 SOAL LENGKAP)
+   ============================================================== */
+const dtLatih = [
+  { t:'pg',
+    soal:'Menjelang Hari Raya Idulfitri, masyarakat di Kota A membeli bahan pokok dalam jumlah besar. Permintaan beras, gula, dan minyak goreng meningkat tajam, sementara produsen belum mampu menambah pasokan. Berdasarkan ilustrasi tersebut, jenis inflasi yang paling mungkin terjadi adalah ....',
+    opsi:['Imported Inflation', 'Cost Push Inflation', 'Demand Pull Inflation', 'Hiperinflasi', 'Inflasi Ringan'], j:2,
+    msg:'Permintaan meningkat lebih cepat dibanding kemampuan produsen menyediakan barang sehingga terjadi <b>Demand Pull Inflation</b>.' },
+  
+  { t:'pg_kompleks',
+    soal:'Pernyataan yang memenuhi syarat terjadinya inflasi ditunjukkan oleh .... (Pilih lebih dari satu jawaban)',
+    opsi:[
+      'Harga satu jenis cabai naik selama 3 hari', 
+      'Harga berbagai barang kebutuhan naik secara umum', 
+      'Kenaikan harga berlangsung terus-menerus', 
+      'Harga naik hanya di satu pasar', 
+      'Terjadi kenaikan harga barang dan jasa'
+    ], j:[1, 2, 4],
+    msg:'Inflasi mensyaratkan <b>kenaikan harga</b> (E), <b>bersifat umum</b> (B), dan <b>berlangsung terus-menerus</b> (C).' },
+  
+  { t:'pg',
+    soal:'Pemerintah menaikkan harga BBM. Akibatnya biaya transportasi dan distribusi barang meningkat sehingga banyak produsen menaikkan harga jual produknya. Konsep ekonomi yang paling tepat menjelaskan peristiwa tersebut adalah ....',
+    opsi:['Demand Pull Inflation', 'Cost Push Inflation', 'Domestic Inflation karena gagal panen', 'Imported Inflation', 'Deflasi'], j:1,
+    msg:'Kenaikan biaya produksi (akibat naiknya harga BBM) menyebabkan harga barang naik sehingga termasuk <b>Cost Push Inflation</b>.' },
+
+  { t:'pg',
+    soal:'Suatu negara mengalami defisit anggaran yang besar. Untuk menutup kekurangan dana, pemerintah mencetak uang baru dalam jumlah besar. Dampak yang paling mungkin terjadi jika kebijakan tersebut dilakukan terus-menerus adalah ....',
+    opsi:[
+      'Jumlah uang beredar berkurang', 
+      'Harga barang cenderung turun', 
+      'Inflasi karena uang beredar melebihi jumlah barang', 
+      'Produksi barang otomatis meningkat', 
+      'Ekspor meningkat tanpa risiko'
+    ], j:2,
+    msg:'Pencetakan uang baru dapat meningkatkan jumlah uang beredar yang tidak diimbangi ketersediaan barang di pasar, sehingga memicu <b>inflasi</b>.' },
+
+  { t:'jodoh',
+    soal:'Pasangkan kasus di sebelah kiri dengan penyebab inflasi yang tepat di sebelah kanan!',
+    pairs: [
+      {n:1, t:'Harga Upah Naik'},
+      {n:2, t:'Gagal Panen'},
+      {n:3, t:'Permintaan barang meningkat drastis'},
+      {n:4, t:'Harga BBM Naik karena ditutupnya Selat Hormuz'}
+    ],
+    imgs: [
+      {n:1, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>💰</text></svg>", name:'Cost Push Inflation'},
+      {n:2, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>🌾</text></svg>", name:'Domestic Inflation'},
+      {n:3, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>📈</text></svg>", name:'Demand Pull Inflation'},
+      {n:4, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>🚢</text></svg>", name:'Imported Inflation'}
+    ],
+    msg:'Inflasi dapat terjadi karena berbagai faktor, seperti meningkatnya permintaan masyarakat, kenaikan biaya produksi, maupun perilaku ekonomi yang memengaruhi ketersediaan barang di pasar.'
+  },
+  
+  { t:'drag_word',
+    soal:'Negara A banyak mengimpor mesin-mesin pabrik dan perangkat elektronik dari Negara B. Suatu ketika, Negara B mengalami krisis yang menyebabkan harga barang produksinya melambung tinggi. Saat produsen di Negara A membeli mesin tersebut, mereka terpaksa ikut menaikkan harga jual produk di dalam negeri.<br><br>Berdasarkan asal terjadinya, fenomena lonjakan harga yang dialami Negara A akibat imbas dari negara lain ini diklasifikasikan sebagai <span class="blank-slot">___</span>. Kondisi semacam ini sangat umum dialami oleh negara-negara berkembang karena sebagian <span class="blank-slot">___</span> maupun mesin untuk industrinya masih berasal dari luar negeri. Menjalarnya inflasi dari satu negara ke negara lain ini secara alami terjadi karena adanya aktivitas <span class="blank-slot">___</span> yang melibatkan kedua belah pihak.',
+    w:['Imported Inflation', 'Domestic Inflation', 'Bahan Baku', 'Permintaan', 'Perdagangan Internasional'], 
+    j:['Imported Inflation', 'Bahan Baku', 'Perdagangan Internasional'],
+    msg:'Inflasi luar negeri (imported inflation) terjadi akibat adanya kenaikan harga di luar negeri yang menyebabkan kenaikan harga di dalam negeri.'
+  },
+  
+  { t:'jodoh',
+    soal:'Pasangkan tingkat persentase inflasi negara-negara di sebelah kiri dengan jenis inflasi berdasarkan tingkat keparahannya di sebelah kanan!',
+    pairs: [
+      {n:1, t:'Negara Singapura (Inflasi 8% setahun)'},
+      {n:2, t:'Negara Indonesia (Inflasi 22% setahun)'},
+      {n:3, t:'Negara Vietnam (Inflasi 85% setahun)'}
+    ],
+    imgs: [
+      {n:1, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>📉</text></svg>", name:'Inflasi Ringan'},
+      {n:2, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>📊</text></svg>", name:'Inflasi Sedang'},
+      {n:3, i:"data:image/svg+xml;utf8,<svg xmlns='\x68\x74\x74\x70://www.w3.org/2000/svg' width='60' height='60'><text x='50%' y='55%' font-size='40' text-anchor='middle' dominant-baseline='middle'>📈</text></svg>", name:'Inflasi Tinggi'}
+    ],
+    msg:'Inflasi ringan : < 10% setahun. Inflasi sedang: 10% s.d 30% setahun. Inflasi tinggi: 31% s.d 100% setahun.'
+  },
+  
+  { t:'bs',
+    soal:'Menjelang pergantian tahun, pabrik-pabrik tekstil di dalam negeri terpaksa menaikkan harga jual pakaian jadi. Hal ini disebabkan oleh melemahnya nilai tukar rupiah (depresiasi) terhadap dolar AS, sehingga harga benang sutra impor yang mereka gunakan sebagai bahan baku utama menjadi jauh lebih mahal. Berdasarkan penyebabnya, fenomena kenaikan harga pakaian jadi akibat mahalnya bahan baku impor tersebut dikenal dengan istilah Demand Pull Inflation (Kelebihan Permintaan).',
+    j:false, 
+    msg:'Fenomena kenaikan harga akibat meningkatnya biaya produksi (termasuk dipicu oleh depresiasi nilai tukar rupiah dan mahalnya bahan baku) disebut <b>Cost Push Inflation</b> (Kenaikan Biaya Produksi), bukan Demand Pull Inflation.'
+  },
+
+  { t:'pg',
+    soal:'Perhatikan kurva pada gambar di samping. Berdasarkan pergerakan kurva dan keterangan pada gambar tersebut, kesimpulan yang paling tepat mengenai pemicu terjadinya inflasi adalah...',
+    img:'./asset/img/soal_9.png',
+    opsi:[
+      'Terjadi Cost Push Inflation karena kurva penawaran (AS) bergeser ke kiri menekan kurva permintaan.',
+      'Terjadi Demand Pull Inflation yang dipicu oleh naiknya permintaan barang (kurva AD1 bergeser ke AD2) sementara penawaran tetap, sehingga harga terdorong naik dari P1 ke P2.',
+      'Terjadi Imported Inflation akibat harga barang P1 naik menjadi P2 tanpa adanya pergeseran kurva kuantitas (Q).',
+      'Adanya hiperinflasi karena jarak pergeseran kurva permintaan (AD1 ke AD2) sangat jauh melebihi penawaran pasar.',
+      'Terjadi penurunan daya beli masyarakat karena kuantitas barang di pasar bergeser naik dari Q1 ke Q2.'
+    ],
+    j:1,
+    msg:'Kurva tersebut mengilustrasikan <b>Demand Pull Inflation</b>. Sesuai keterangan, naiknya permintaan menggeser kurva permintaan ke kanan (AD1 ke AD2) sementara penawaran (AS) tetap. Hal ini menggeser titik keseimbangan pasar (E1 ke E2), memicu naiknya harga barang dari P1 ke P2.'
+  },
+
+  { t:'pg_kompleks',
+    soal:'Membaca berita mengenai laju inflasi nasional yang menyentuh angka 6% tahun ini, Pak Budi mulai mengamati perubahan di sekitarnya. Ia menyadari bahwa harga kebutuhan pokok harian semakin mahal, sementara gaji tetapnya sebagai pegawai negeri tidak mengalami perubahan. Di sisi lain, rekan kerjanya yang memiliki uang tunai dalam jumlah besar terlihat sibuk memindahkan dananya dari rekening bank untuk dibelikan sebidang tanah dan emas batangan karena khawatir uangnya semakin tak bernilai.<br><br>Manakah pernyataan di bawah ini yang merupakan dampak langsung dari terjadinya inflasi? (Pilih 2 jawaban yang benar!)',
+    opsi:[
+      'Minat menabung menurun karena keuntungan bunga bank tergerus inflasi.',
+      'Meningkatnya daya beli masyarakat berpendapatan tetap.',
+      'Terjadi surplus perdagangan karena harga barang domestik lebih murah.',
+      'Peralihan penanaman modal ke aset fisik atau barang berharga.',
+      'Penghitungan harga pokok produksi menjadi lebih efisien dan stabil.'
+    ],
+    j:[0, 3],
+    msg:'Inflasi <b>menurunkan minat menabung</b> akibat tergerusnya nilai riil tabungan, serta mendorong pemilik modal <b>mengalihkan kekayaannya ke aset fisik</b> (seperti tanah dan emas) untuk mengamankan kekayaan dari merosotnya nilai uang tunai.'
+  }
+];
+
+/* ##############################################################
+   #  BAGIAN B — MESIN APLIKASI                                #
+   ############################################################## */
+
+function setTxt(id,v){ const e=document.getElementById(id); if(e) e.textContent=v; }
+function setSrc(id,v){ const e=document.getElementById(id); if(e) e.setAttribute('src',v); }
+function applyConfig(){
+  const C=CONFIG;
+  setTxt('cfg-fase',C.fase); setTxt('cfg-judul',C.judul); setTxt('cfg-subjudul',C.subJudul);
+  setSrc('cfg-logo',C.logo); setSrc('cfg-bgjudul',C.bgJudul); setTxt('cfg-judul-menu',C.judul);
+  setTxt('cfg-mapel',C.mapel); setTxt('cfg-unit',C.unit); setTxt('cfg-subunit',C.subUnit); setTxt('cfg-tp',C.tp);
+  setTxt('cfg-nama',C.profil.nama); setTxt('cfg-nama2',C.profil.nama);
+  setTxt('cfg-instansi',C.profil.instansi); setTxt('cfg-jenis',C.profil.jenis); setSrc('cfg-foto',C.profil.foto);
+  document.title=C.judul+' — MPI';
+}
+
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+function getOffset(el, parent){ let top=0,left=0; while(el&&el!==parent){ top+=el.offsetTop; left+=el.offsetLeft; el=el.offsetParent; } return {top,left}; }
+function drawLine(el1, el2, containerId){
+  const wrap=document.getElementById(containerId);
+  if(!wrap) return;
+  let svg=wrap.querySelector('.jodoh-svg');
+  if(!svg){
+    svg=document.createElementNS('\x68\x74\x74\x70://www.w3.org/2000/svg','svg'); svg.setAttribute('class','jodoh-svg');
+    svg.style.position='absolute'; svg.style.top='0'; svg.style.left='0'; svg.style.width='100%'; svg.style.height='100%'; svg.style.pointerEvents='none'; svg.style.zIndex='0';
+    wrap.appendChild(svg);
+  }
+  const o1=getOffset(el1,wrap), o2=getOffset(el2,wrap);
+  const line=document.createElementNS('\x68\x74\x74\x70://www.w3.org/2000/svg','line');
+  line.setAttribute('x1', o1.left+el1.offsetWidth); line.setAttribute('y1', o1.top+el1.offsetHeight/2);
+  line.setAttribute('x2', o2.left); line.setAttribute('y2', o2.top+el2.offsetHeight/2);
+  line.setAttribute('stroke','var(--hijau-tua)'); line.setAttribute('stroke-width','5'); line.setAttribute('stroke-linecap','round'); line.setAttribute('class','jodoh-line');
+  svg.appendChild(line);
+}
+function setProgress(fillId, labelId, cur, total){ document.getElementById(fillId).style.width=(cur/total*100)+'%'; document.getElementById(labelId).textContent=cur+'/'+total; }
+function showFb(id,kind,msg){ const fb=document.getElementById(id); if(!fb) return; fb.className='feedback show '+kind; fb.innerHTML=msg; }
+
+const stage = document.getElementById('stage');
+function resizeStage(){
+  const w = window.innerWidth, h = window.innerHeight;
+  const scale = Math.min(w/1280, h/720);
+  stage.style.transform = 'scale(' + scale + ')';
+  stage.style.left = ((w - 1280*scale)/2) + 'px';
+  stage.style.top  = ((h - 720*scale)/2) + 'px';
+}
+window.addEventListener('resize', resizeStage); resizeStage();
+
+let soundOn = true, globalVolume = 1;
+const AUDIO = {};
+function loadAudio(key, src){ try{ const a=new Audio(src); a.preload='auto'; AUDIO[key]=a; }catch(e){} }
+loadAudio('bgm','./asset/audio/bgm.wav'); if(AUDIO['bgm']) AUDIO['bgm'].loop = true;
+loadAudio('klik','./asset/audio/klik.mp3');
+loadAudio('benar','./asset/audio/benar.mp3');
+loadAudio('salah','./asset/audio/salah.wav');
+loadAudio('transisi','./asset/audio/transisi.wav');
+loadAudio('bintang','./asset/audio/bintang.wav');
+function play(key){
+  if(!soundOn || globalVolume === 0) return;
+  const a = AUDIO[key]; if(!a) return;
+  try{ a.volume = globalVolume; if(key !== 'bgm') a.currentTime=0; const p=a.play(); if(p&&p.catch) p.catch(()=>{}); } catch(e){}
+}
+function changeVolume(val){
+  globalVolume = parseFloat(val);
+  const btn = document.getElementById('sound-toggle');
+  if (globalVolume === 0){ soundOn=false; btn.textContent='🔇'; }
+  else { soundOn=true; btn.textContent = globalVolume<0.5?'🔉':'🔊'; if(AUDIO['bgm'] && AUDIO['bgm'].paused) play('bgm'); }
+  for(let k in AUDIO){ if(AUDIO[k]) AUDIO[k].volume = globalVolume; }
+}
+function toggleSound(){
+  const slider = document.getElementById('volume-slider'); const btn = document.getElementById('sound-toggle');
+  if(soundOn){ soundOn=false; slider.value=0; btn.textContent='🔇'; for(let k in AUDIO){ if(AUDIO[k]){ AUDIO[k].volume=0; if(k==='bgm') AUDIO[k].pause(); } } }
+  else { soundOn=true; globalVolume = globalVolume===0?1:globalVolume; slider.value=globalVolume; btn.textContent='🔊'; for(let k in AUDIO){ if(AUDIO[k]) AUDIO[k].volume=globalVolume; } play('bgm'); }
+}
+document.addEventListener('click', function(e){
+  const t = e.target.closest('[data-sfx]'); if(t && t.getAttribute('data-sfx') !== 'no') play('klik');
+});
+
+function triggerSalah(){ const el=document.getElementById('efek-salah'); if(el){ el.classList.add('nyala'); setTimeout(()=>el.classList.remove('nyala'),50);} }
+function showConfetti(){
+  const container=document.getElementById('stage');
+  const colors=['#248CFF','#50CEDC','#5CDFAB','#FF5A5A','#ffffff'];
+  for(let i=0;i<60;i++){
+    const conf=document.createElement('div'); conf.className='confetti';
+    conf.style.left='50%'; conf.style.top='50%';
+    conf.style.backgroundColor=colors[Math.floor(Math.random()*colors.length)];
+    const angle=Math.random()*Math.PI*2, velocity=100+Math.random()*400;
+    conf.style.setProperty('--tx', (Math.cos(angle)*velocity)+'px');
+    conf.style.setProperty('--ty', (Math.sin(angle)*velocity-200)+'px');
+    if(Math.random()>0.5) conf.style.borderRadius='50%';
+    container.appendChild(conf); setTimeout(()=>conf.remove(),1500);
+  }
+}
+
+/* --- POPUPS & LANJUT/KELUAR --- */
+function openModal(id){ document.getElementById(id).classList.add('show'); play('transisi'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); play('klik'); }
+document.querySelectorAll('.modal-bg').forEach(m=>{ m.addEventListener('click', e=>{ if(e.target===m) closeModal(m.id); }); });
+
+function showWarning(title, msg) {
+  document.getElementById('warn-title').innerHTML = title;
+  document.getElementById('warn-msg').innerHTML = msg;
+  openModal('modal-warning');
+}
+
+let confirmCallback = null;
+function showConfirm(msg) {
+  document.getElementById('confirm-msg').innerHTML = msg;
+  openModal('modal-confirm');
+}
+function executeConfirmYes() {
+  closeModal('modal-confirm');
+  goMenu();
+}
+
+function showScreen(id){
+  clearKumpul();
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const aw=document.getElementById('audio-widget'); if(aw) aw.style.display=(id==='scr-judul')?'none':'flex';
+  
+  const ub = document.getElementById('user-badge');
+  if(ub) {
+    if(id === 'scr-judul') {
+      ub.style.display = 'none'; 
+    } else if (infoMurid.nama !== "") {
+      ub.style.display = 'block'; 
+    }
+  }
+
+  if(id!=='scr-judul') play('transisi'); resizeStage();
+}
+
+function goJudul(){ showScreen('scr-judul'); }
+function goMenu(){ 
+  if(bermainTimer) clearInterval(bermainTimer);
+  
+  const btnBermain = document.querySelector('.mc-bermain');
+  const btnBerlatih = document.querySelector('.mc-berlatih');
+  if(btnBermain) {
+      btnBermain.style.filter = progressStatus.belajar ? "none" : "grayscale(1)";
+      btnBermain.style.opacity = progressStatus.belajar ? "1" : "0.6";
+  }
+  if(btnBerlatih) {
+      btnBerlatih.style.filter = progressStatus.bermain ? "none" : "grayscale(1)";
+      btnBerlatih.style.opacity = progressStatus.bermain ? "1" : "0.6";
+  }
+
+  showScreen('scr-menu'); 
+}
+
+function simpanIdentitasAndShowWelcome() {
+  const nm=document.getElementById('in-nama').value.trim();
+  const sk=document.getElementById('in-sekolah').value.trim();
+  const pesan=document.getElementById('login-pesan');
+  if(!nm){ pesan.style.display='block'; return; }
+  
+  infoMurid.nama=nm; infoMurid.sekolah=sk||"-";
+  document.getElementById('nama-display').textContent = nm;
+  document.getElementById('welcome-name').textContent = nm; 
+  
+  closeModal('modal-login'); 
+  openModal('modal-welcome'); 
+}
+
+function tutupWelcome(){
+  closeModal('modal-welcome');
+  play('bgm');
+  goMenu();
+}
+
+function tryStartBermain() {
+  if (!progressStatus.belajar) {
+     showWarning("🔒 Akses Terkunci", "Kamu harus menyelesaikan seluruh materi <b>Belajar</b> terlebih dahulu sebelum bisa Bermain.");
+     return;
+  }
+  startBermain();
+}
+function tryStartBerlatih() {
+  if (!progressStatus.bermain) {
+     showWarning("🔒 Akses Terkunci", "Selesaikan Asah Ketangkasan Otak <b>Permainan</b> terlebih dahulu sebelum menguji pemahamanmu.");
+     return;
+  }
+  startBerlatih();
+}
+
+function checkAndGoMenu(type) {
+  let isDone = false;
+  if (type === 'belajar') isDone = progressStatus.belajar;
+  if (type === 'bermain') isDone = progressStatus.bermain;
+  if (type === 'berlatih') isDone = progressStatus.berlatih;
+
+  if (!isDone) {
+     showConfirm(`Kamu belum menyelesaikan sesi <b>${type}</b> ini hingga akhir. Yakin ingin keluar ke Menu Utama?`);
+  } else {
+     goMenu();
+  }
+}
+
+/* ====== FUNGSI ZOOM GAMBAR ====== */
+function openZoom(src) {
+  play('klik');
+  document.getElementById('zoomed-image').src = src;
+  openModal('modal-zoom');
+}
+function zoomCarousel() {
+  const m = MATERI[belajar.step];
+  if(m && m.mediaType === 'carousel') {
+      openZoom(m.mediaPath[curCarStep]);
+  }
+}
+
+/* ====== FUNGSI CAROUSEL ====== */
+let curCarStep = 0;
+function navCarousel(dir) {
+  const m = MATERI[belajar.step];
+  if(!m || m.mediaType !== 'carousel') return;
+  const max = m.mediaPath.length;
+  
+  if(dir === 'prev') curCarStep = (curCarStep - 1 + max) % max;
+  else if(dir === 'next') curCarStep = (curCarStep + 1) % max;
+  else if(typeof dir === 'number') curCarStep = dir;
+  
+  for(let i=0; i<max; i++){
+    const img = document.getElementById('car-img-'+i);
+    const dot = document.getElementById('car-dot-'+i);
+    if(img) img.style.display = (i === curCarStep) ? 'block' : 'none';
+    if(dot) dot.style.background = (i === curCarStep) ? 'var(--primary)' : '#ccc';
+  }
+  play('klik');
+}
+
+/* ====== RENDER BELAJAR ====== */
+const belajar = { step:0 };
+function startBelajar(){ belajar.step=0; showScreen('scr-belajar'); renderBelajar(); }
+function renderBelajar(){
+  const total=MATERI.length;
+  setProgress('belajar-pfill','belajar-plabel', belajar.step+1, total);
+  const m=MATERI[belajar.step];
+  document.getElementById('belajar-sub').textContent=m.judul;
+  document.getElementById('belajar-prev').textContent = belajar.step===0 ? "☰ Menu" : "◀ Sebelumnya";
+  document.getElementById('belajar-next').textContent = belajar.step===total-1 ? "Selesai ✔" : "Selanjutnya ▶";
+  
+  let kuisHTML='';
+  if(m.kuis){
+    const kuisJudul = m.kuis.judul || 'Ayo Tebak!';
+    const escapeBahas = m.kuis.bahas ? m.kuis.bahas.replace(/'/g, "\\'") : '';
+    kuisHTML=`<div class="belajar-kuis">
+      <p class="bk-tanya">✨ ${kuisJudul} &nbsp; ${m.kuis.tanya}</p>
+      <div class="bk-opsi">
+        <button class="btn btn-kuning" style="padding:10px 20px;font-size:18px;" onclick="cekKuisMini(this, ${m.kuis.j===0}, '${escapeBahas}')">${m.kuis.o[0]}</button>
+        <button class="btn btn-kuning" style="padding:10px 20px;font-size:18px;" onclick="cekKuisMini(this, ${m.kuis.j===1}, '${escapeBahas}')">${m.kuis.o[1]}</button>
+      </div>
+      <div class="bk-bahas" style="display:none; margin-top:12px; padding:12px; border-radius:12px; font-size:18px; line-height:1.4;"></div>
+    </div>`;
+  }
+
+  let mediaHTML='';
+  if(m.mediaType === 'video'){
+    mediaHTML = `<video src="${m.mediaPath}" controls style="width:100%; border-radius:16px; box-shadow: var(--bayang-kecil); background: #000;"></video>`;
+  } else if (m.mediaType === 'carousel') {
+    curCarStep = 0; 
+    let carImgs = '';
+    m.mediaPath.forEach((src, idx) => {
+       carImgs += `<img src="${src}" id="car-img-${idx}" style="display:${idx===0?'block':'none'}; width:100%; height:100%; max-height:450px; object-fit:contain; border-radius:16px; transition:opacity 0.3s;" onerror="imgErr(this)">`;
+    });
+    let dots = '';
+    m.mediaPath.forEach((_, idx) => {
+       dots += `<span id="car-dot-${idx}" style="width:14px;height:14px;border-radius:50%;background:${idx===0?'var(--primary)':'#ccc'};cursor:pointer;display:inline-block;margin:0 5px;" onclick="navCarousel(${idx})"></span>`;
+    });
+    mediaHTML = `
+      <div style="position:relative; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+         <div style="flex:1; width:100%; position:relative; display:flex; align-items:center; justify-content:center; min-height:0;">
+            <button onclick="navCarousel('prev')" style="position:absolute; left:10px; z-index:10; background:var(--primary); color:#fff; border:none; border-radius:50%; width:44px; height:44px; font-size:22px; cursor:pointer; box-shadow:var(--bayang-kecil); display:flex; align-items:center; justify-content:center;">◀</button>
+            ${carImgs}
+            <button onclick="navCarousel('next')" style="position:absolute; right:10px; z-index:10; background:var(--primary); color:#fff; border:none; border-radius:50%; width:44px; height:44px; font-size:22px; cursor:pointer; box-shadow:var(--bayang-kecil); display:flex; align-items:center; justify-content:center;">▶</button>
+            <button class="icon-btn-small" style="position:absolute; bottom:10px; right:10px; z-index:15; width:44px; height:44px; font-size:20px; box-shadow:var(--bayang); background:var(--accent); color:var(--tinta);" onclick="zoomCarousel()" title="Perbesar Gambar">🔍</button>
+         </div>
+         <div style="margin-top:16px; flex: 0 0 auto;">${dots}</div>
+      </div>
+    `;
+  } else {
+    mediaHTML = `
+      <div style="position:relative; width:100%; height:100%; display:flex; align-items:center; justify-content:center;">
+          <img src="${m.mediaPath}" alt="${m.judul}" style="width:100%; height:auto; max-height:450px; object-fit:contain; border-radius:16px;" onerror="imgErr(this)">
+          <button class="icon-btn-small" style="position:absolute; bottom:10px; right:10px; z-index:15; width:44px; height:44px; font-size:20px; box-shadow:var(--bayang); background:var(--accent); color:var(--tinta);" onclick="openZoom('${m.mediaPath}')" title="Perbesar Gambar">🔍</button>
+      </div>
+    `;
+  }
+
+  document.getElementById('belajar-content').innerHTML = `
+    <div class="belajar-frame">
+      <div class="belajar-img-sisi">${mediaHTML}</div>
+      <div class="belajar-teks-sisi">
+        <h2>${m.judul}</h2>
+        <div class="belajar-intro">${m.intro}</div>
+        <div class="belajar-isi">${m.isi}</div>
+        ${kuisHTML}
+      </div>
+    </div>`;
+}
+
+function cekKuisMini(btn, isBenar, bahas){
+  play('klik'); 
+  const p = btn.parentNode;
+  p.querySelectorAll('button').forEach(b=>b.disabled=true);
+  const bahasEl = p.nextElementSibling;
+  
+  if(isBenar){ 
+    btn.style.background='var(--hijau-tua)'; btn.style.color='#fff'; btn.innerHTML+=' ✔️'; play('benar'); showConfetti(); 
+    if(bahas) {
+       bahasEl.innerHTML = `✅ <b>Tepat!</b><br>${bahas}`;
+       bahasEl.style.background = '#ECFDF5'; bahasEl.style.color = 'var(--hijau-tua)'; bahasEl.style.border = '2px solid var(--hijau-tua)';
+    }
+  } else { 
+    btn.style.background='var(--salah)'; btn.style.color='#fff'; btn.innerHTML+=' ❌'; play('salah'); triggerSalah(); 
+    if(bahas) {
+       bahasEl.innerHTML = `❌ <b>Kurang Tepat!</b><br>${bahas}`;
+       bahasEl.style.background = '#FEF2F2'; bahasEl.style.color = 'var(--salah)'; bahasEl.style.border = '2px solid var(--salah)';
+    }
+  }
+  if(bahas) bahasEl.style.display = 'block';
+}
+
+function belajarNext(){ 
+  if(belajar.step < MATERI.length-1){ 
+    belajar.step++; renderBelajar(); 
+  } else { 
+    progressStatus.belajar = true; // Unlock menu Bermain
+    goMenu(); 
+  } 
+}
+function belajarPrev(){ 
+  if(belajar.step > 0){ 
+    belajar.step--; renderBelajar(); 
+  } else { 
+    checkAndGoMenu('belajar'); 
+  } 
+}
+
+/* ====== RENDER BERMAIN DENGAN TIMER 300s ====== */
+let skorBermain=0, main={step:0}, activeGame=null;
+let bermainTimer = null;
+let bermainWaktu = 300;
+
+function tambahSkor(val){ skorBermain=Math.max(0,skorBermain+val); document.getElementById('skor-bermain-angka').textContent=skorBermain; }
+
+function startBermain(){ 
+  if(!progressStatus.belajar) {
+     showWarning("🔒 Akses Terkunci", "Kamu harus menyelesaikan semua halaman di menu <b>Belajar</b> terlebih dahulu sebelum bisa Bermain.");
+     return;
+  }
+  main.step=0; skorBermain=0; tambahSkor(0); 
+  
+  // Setup global timer for Bermain
+  bermainWaktu = 300;
+  let wEl = document.getElementById('bermain-waktu');
+  if(wEl) wEl.textContent = bermainWaktu;
+  if(bermainTimer) clearInterval(bermainTimer);
+  bermainTimer = setInterval(() => {
+    bermainWaktu--;
+    if(wEl) wEl.textContent = bermainWaktu;
+    if(bermainWaktu <= 0) {
+        clearInterval(bermainTimer);
+        showFb('play-fb','no', '⏳ <b>Waktu Habis!</b> Permainan dihentikan.');
+        lockBermain(); // block clicks
+        setTimeout(renderSkorBermain, 1500);
+    }
+  }, 1000);
+  
+  showScreen('scr-bermain'); 
+  renderBermain(); 
+}
+
+function lockBermain() {
+   document.querySelectorAll('.obj-card, .pair-item, .urut-item button, .kumpul-flag, .sambung-btn, .kelompok-item').forEach(el => el.style.pointerEvents = 'none');
+}
+
+function bermainNext(){ if(main.step<dataBermain.length-1){ main.step++; renderBermain(); } else { clearKumpul(); renderSkorBermain(); } }
+function bermainPrev(){
+  clearKumpul();
+  document.querySelector('#scr-bermain .nav-back').textContent="◀ Sebelumnya";
+  document.getElementById('bermain-next').textContent="Selanjutnya ▶";
+  if(main.step>0){ 
+    main.step--; renderBermain(); 
+  } else { 
+    checkAndGoMenu('bermain'); 
+  }
+}
+function renderBermain(){
+  clearKumpul();
+  setProgress('bermain-pfill','bermain-plabel', main.step+1, dataBermain.length);
+  document.getElementById('bermain-next').disabled=true;
+  const game=dataBermain[main.step];
+  document.getElementById('bermain-sub').textContent='Permainan '+(main.step+1)+': '+game.sub;
+  if(game.t==='jodoh') initJodoh(game);
+  else if(game.t==='klik') initKlik(game);
+  else if(game.t==='urut') initUrut(game);
+  else if(game.t==='kumpul') initKumpul(game);
+  else if(game.t==='sambung') initSambung(game);
+  else if(game.t==='kelompok') initKelompok(game);
+}
+
+function initJodoh(game){
+  activeGame={ s:null, c:0, total:game.pairs.length };
+  let kHTML='', rHTML='';
+  game.pairs.forEach(p=>{ kHTML+=`<div class="pair-item" data-side="kiri" data-n="${p.n}" onclick="handleJodoh(this)">${p.teks}</div>`; });
+  shuffle(game.imgs).forEach(p=>{ rHTML+=`<div class="pair-item" data-side="kanan" data-n="${p.n}" onclick="handleJodoh(this)"><img src="${p.i}" class="img-pair" alt="${p.name}" onerror="imgErr(this)"><span>${p.name}</span></div>`; });
+  document.getElementById('bermain-content').innerHTML=`<div class="center-col" style="z-index:10;"><p class="akt-instruksi">${game.ins}</p><div class="jodoh-wrap" id="jw-main"><div class="jodoh-kol">${kHTML}</div><div class="jodoh-kol">${rHTML}</div></div><div class="feedback" id="play-fb"></div></div>`;
+}
+function handleJodoh(el){
+  if(el.classList.contains('locked')) return;
+  if(el.dataset.side==='kiri'){ document.querySelectorAll('#bermain-content [data-side="kiri"]').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); activeGame.s=el; play('klik'); return; }
+  if(!activeGame.s){ showFb('play-fb','no','❌ Pilih kotak di sebelah kiri dahulu.'); return; }
+  if(el.dataset.n===activeGame.s.dataset.n){
+    play('benar'); tambahSkor(10); showConfetti();
+    el.classList.add('locked'); activeGame.s.classList.add('locked'); drawLine(activeGame.s,el,'jw-main');
+    activeGame.s.classList.remove('sel'); activeGame.s=null; activeGame.c++;
+    showFb('play-fb','ok','✅ <b>Cocok! (+10 poin)</b>');
+    if(activeGame.c===activeGame.total){ document.getElementById('bermain-next').disabled=false; showFb('play-fb','ok','🎉 <b>Hebat! Semua berhasil dicocokkan.</b>'); }
+  } else {
+    play('salah'); tambahSkor(-5); triggerSalah(); el.classList.add('salah'); setTimeout(()=>el.classList.remove('salah'),400);
+    showFb('play-fb','no','❌ <b>Belum tepat (-5 poin).</b>');
+  }
+}
+function initKlik(game){
+  const opsi=shuffle(game.opsi);
+  activeGame={ c:0, total:game.opsi.filter(o=>o.b).length };
+  let html='';
+  opsi.forEach((o,i)=> html+=`<div class="obj-card" id="oc-${i}"><img src="${o.imgPath}" class="img-obj" alt="${o.t}" onerror="imgErr(this)"><span>${o.t}</span></div>`);
+  document.getElementById('bermain-content').innerHTML=`<div class="center-col"><p class="akt-instruksi">${game.ins}</p><div class="scene-grid">${html}</div><div class="feedback" id="play-fb"></div></div>`;
+  opsi.forEach((o,i)=>{ const el=document.getElementById('oc-'+i); el.onclick=()=>handleKlik(el,o.b,o.msg); });
+}
+function handleKlik(el,isBenar,msg){
+  if(el.classList.contains('benar')||el.classList.contains('salah')) return;
+  if(isBenar){
+    play('benar'); tambahSkor(10); showConfetti(); el.classList.add('benar'); activeGame.c++;
+    showFb('play-fb','ok',`✅ <b>Tepat! (+10 poin)</b><br>${msg}`);
+    if(activeGame.c===activeGame.total) document.getElementById('bermain-next').disabled=false;
+  } else {
+    play('salah'); tambahSkor(-5); el.classList.add('salah'); triggerSalah();
+    showFb('play-fb','no',`❌ <b>Kurang tepat (-5 poin).</b><br>${msg}`);
+    setTimeout(()=>el.classList.remove('salah'),500);
+  }
+}
+function initUrut(game){ activeGame={g:game}; do{ activeGame.now=shuffle(game.urut); }while(activeGame.now.join('|')===game.urut.join('|')); drawUrutUI(); }
+function drawUrutUI(){
+  let items='';
+  activeGame.now.forEach((t,i)=>{
+    items+=`<div class="urut-item"><span class="num">${i+1}</span><span>${t}</span>
+      <button class="btn btn-kuning" onclick="moveUrut(${i},-1)" ${i===0?'disabled':''}>▲</button>
+      <button class="btn btn-kuning" onclick="moveUrut(${i},1)" ${i===activeGame.now.length-1?'disabled':''}>▼</button></div>`;
+  });
+  document.getElementById('bermain-content').innerHTML=`<div class="center-col" style="justify-content:flex-start; overflow-y:auto;"><p class="akt-instruksi" style="margin-bottom:10px;">${activeGame.g.ins}</p><div style="width:100%;">${items}</div><button class="btn btn-biru" style="height:60px;margin-top:10px;font-size:22px" onclick="checkUrut()">Periksa Urutan</button><div class="feedback" id="play-fb"></div></div>`;
+}
+function moveUrut(i,dir){ play('klik'); const j=i+dir; if(j<0||j>=activeGame.now.length) return; [activeGame.now[i],activeGame.now[j]]=[activeGame.now[j],activeGame.now[i]]; drawUrutUI(); }
+function checkUrut(){
+  if(activeGame.now.join('|')===activeGame.g.urut.join('|')){ play('benar'); tambahSkor(10); showConfetti(); showFb('play-fb','ok','✅ <b>Urutan tepat! (+10 poin)</b>'); document.getElementById('bermain-next').disabled=false; }
+  else { play('salah'); tambahSkor(-5); triggerSalah(); showFb('play-fb','no','❌ <b>Belum tepat (-5 poin).</b> Coba lagi!'); }
+}
+function initKelompok(game){
+  activeGame = { s: null, c: 0, total: game.items.length };
+  let items = shuffle(game.items).map((o,i) => `<div class="kelompok-item" id="ki-${i}" onclick="selKelompok(this, ${o.k})">${o.t}</div>`).join('');
+  let boxes = game.kategori.map((k,i) => `<div class="kelompok-box" onclick="dropKelompok(${i})"><h3>${k}</h3><div class="kb-isi" id="kb-${i}" style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;"></div></div>`).join('');
+  
+  document.getElementById('bermain-content').innerHTML=`<div class="center-col" style="justify-content:flex-start;"><p class="akt-instruksi">${game.ins}</p><div class="kelompok-pool" id="k-pool">${items}</div><div class="kelompok-wrap">${boxes}</div><div class="feedback" id="play-fb"></div></div>`;
+}
+function selKelompok(el, k) {
+  if(el.parentElement.id !== 'k-pool') return; 
+  document.querySelectorAll('.kelompok-item').forEach(x=>x.classList.remove('sel'));
+  el.classList.add('sel');
+  activeGame.s = { el, k };
+  play('klik');
+}
+function dropKelompok(k_idx) {
+  if(!activeGame.s) { showFb('play-fb','no','❌ Pilih kartunya terlebih dahulu!'); return; }
+  
+  if(activeGame.s.k === k_idx) {
+     play('benar'); tambahSkor(10); showConfetti();
+     activeGame.s.el.classList.remove('sel');
+     activeGame.s.el.onclick = null; 
+     activeGame.s.el.style.cursor = 'default';
+     document.getElementById('kb-'+k_idx).appendChild(activeGame.s.el);
+     activeGame.s = null;
+     activeGame.c++;
+     showFb('play-fb','ok','✅ <b>Tepat! (+10 poin)</b>');
+     if(activeGame.c === activeGame.total) { 
+        document.getElementById('bermain-next').disabled=false; 
+        showFb('play-fb','ok','🎉 <b>Hebat! Semua berhasil dikelompokkan.</b>'); 
+     }
+  } else {
+     play('salah'); tambahSkor(-5); triggerSalah();
+     activeGame.s.el.classList.remove('sel');
+     activeGame.s = null;
+     showFb('play-fb','no','❌ <b>Kategori belum tepat (-5 poin).</b>');
+  }
+}
+
+let kumpulTimer=null, kumpulSpawn=null, kumpulCollected=0, kumpulTime=0, activeKumpul={benar:'',salah:[]};
+function clearKumpul(){ if(kumpulTimer){clearInterval(kumpulTimer);kumpulTimer=null;} if(kumpulSpawn){clearInterval(kumpulSpawn);kumpulSpawn=null;} }
+function initKumpul(game){
+  clearKumpul(); kumpulCollected=0; kumpulTime=30; activeKumpul={ benar:game.benar, salah:game.salah||[] };
+  document.getElementById('bermain-content').innerHTML=`
+    <div class="center-col" style="justify-content:flex-start;">
+      <p class="akt-instruksi">${game.ins}</p>
+      <div class="kumpul-hud"><div class="hud-box hud-time">⏱️ <span id="kumpul-time">30</span> dtk</div><div class="hud-box hud-coll">⭐ Terkumpul: <span id="kumpul-coll">0</span></div></div>
+      <div class="kumpul-area" id="kumpul-area"></div>
+      <div class="feedback" id="play-fb"></div>
+    </div>`;
+  kumpulTimer=setInterval(()=>{ kumpulTime--; const t=document.getElementById('kumpul-time'); if(t)t.textContent=kumpulTime; if(kumpulTime<=0) endKumpul(); },1000);
+  kumpulSpawn=setInterval(spawnFlag,650); spawnFlag(); spawnFlag(); spawnFlag();
+}
+function spawnFlag(){
+  const area=document.getElementById('kumpul-area'); if(!area) return;
+  const benar=Math.random()<0.6;
+  const f=document.createElement('div'); f.className='kumpul-flag';
+  const img= benar ? activeKumpul.benar : (activeKumpul.salah.length? activeKumpul.salah[Math.floor(Math.random()*activeKumpul.salah.length)] : activeKumpul.benar);
+  f.innerHTML=`<img src="${img}" alt="objek" onerror="imgErr(this)">`;
+  const maxX=Math.max(0,area.clientWidth-100), maxY=Math.max(0,area.clientHeight-110);
+  f.style.left=(Math.random()*maxX)+'px'; f.style.top=(Math.random()*maxY)+'px';
+  f.onclick=()=>tapFlag(f,benar); area.appendChild(f);
+  setTimeout(()=>{ if(f.parentNode) f.remove(); },1700);
+}
+function tapFlag(f,benar){
+  if(!f.parentNode) return;
+  if(benar){ play('benar'); kumpulCollected++; tambahSkor(5); const c=document.getElementById('kumpul-coll'); if(c)c.textContent=kumpulCollected; f.remove(); }
+  else { play('salah'); tambahSkor(-3); triggerSalah(); f.style.filter='grayscale(1) brightness(0.7)'; setTimeout(()=>{ if(f.parentNode) f.remove(); },200); }
+}
+function endKumpul(){
+  clearKumpul();
+  const area=document.getElementById('kumpul-area');
+  if(area) area.innerHTML=`<div style="display:flex;height:100%;align-items:center;justify-content:center;flex-direction:column;gap:10px;"><div style="font-size:64px;">🎉</div><div style="font-size:30px;font-weight:900;color:var(--primary-tua);">Waktu Habis!</div></div>`;
+  showConfetti(); play('bintang');
+  showFb('play-fb','ok',`⭐ <b>Kamu mengumpulkan ${kumpulCollected} objek benar!</b> Tekan Selanjutnya ▶`);
+  document.getElementById('bermain-next').disabled=false;
+}
+let sambungStep=0, activeSambung=null;
+function initSambung(game){ sambungStep=0; activeSambung=game; drawSambung(); }
+function drawSambung(){
+  const g=activeSambung;
+  if(sambungStep>=g.steps.length){
+    document.getElementById('bermain-content').innerHTML=`<div class="center-col"><div class="akhir" style="flex:none;"><div style="font-size:60px;">🎯</div><h2 style="font-size:34px;">Lengkap!</h2><div class="sambung-lirik" style="font-size:22px;margin-top:10px;">${g.hasil}</div><p style="font-size:20px;margin-top:14px;">Hebat! Tekan <b>Selanjutnya ▶</b></p></div></div>`;
+    return;
+  }
+  const s=g.steps[sambungStep];
+  let btns=''; shuffle([s.benar,...s.salah]).forEach(o=> btns+=`<button class="sambung-btn" onclick="cekSambung(this, ${o===s.benar})">${o}</button>`);
+  document.getElementById('bermain-content').innerHTML=`<div class="center-col"><p class="akt-instruksi">${g.ins} (${sambungStep+1}/${g.steps.length})</p><div class="sambung-lirik">${s.prev}</div><div class="sambung-opsi">${btns}</div><div class="feedback" id="play-fb"></div></div>`;
+}
+function cekSambung(btn,benar){
+  document.querySelectorAll('.sambung-btn').forEach(b=>b.style.pointerEvents='none');
+  if(benar){
+    btn.classList.add('benar'); play('benar'); tambahSkor(10); showConfetti(); showFb('play-fb','ok','✅ <b>Tepat! (+10 poin)</b>');
+    sambungStep++;
+    setTimeout(()=>{ if(sambungStep>=activeSambung.steps.length) document.getElementById('bermain-next').disabled=false; drawSambung(); },900);
+  } else {
+    btn.classList.add('salah'); play('salah'); tambahSkor(-5); triggerSalah(); showFb('play-fb','no','❌ <b>Belum tepat (-5 poin).</b> Coba lagi!');
+    setTimeout(()=> document.querySelectorAll('.sambung-btn').forEach(b=>{ b.style.pointerEvents='auto'; b.classList.remove('salah'); }),800);
+  }
+}
+function renderSkorBermain(){
+  if(bermainTimer) clearInterval(bermainTimer);
+  progressStatus.bermain = true; // Unlock menu Berlatih
+  document.getElementById('bermain-sub').textContent='Selesai';
+  document.getElementById('bermain-next').disabled=true; play('bintang');
+  document.getElementById('bermain-content').innerHTML=`
+    <div class="akhir"><h2>🏆 Permainan Selesai!</h2>
+      <div class="identitas">${infoMurid.nama} • ${infoMurid.sekolah}</div>
+      <p style="font-size:24px;margin-top:20px;">Total Skor Bermain Kamu:</p>
+      <p class="skor-angka">${skorBermain}</p>
+      <div style="display:flex;gap:20px;margin-top:20px">
+        <button class="btn btn-biru" style="height:60px;padding:0 30px;font-size:20px" onclick="startBermain()">🔄 Main Lagi</button>
+        <button class="btn btn-kuning" style="height:60px;padding:0 30px;font-size:20px" onclick="goMenu()">☰ Menu Utama</button>
+      </div></div>`;
+}
+
+/* ==============================================================
+   RENDER BERLATIH TANPA TIMER 
+   ============================================================== */
+let latih={ step:0, skor:0, state:[] };
+
+function startBerlatih(){ 
+  if(!progressStatus.bermain) {
+     showWarning("🔒 Akses Terkunci", "Kamu harus menyelesaikan 10 <b>Permainan</b> terlebih dahulu sebelum bisa masuk ke Uji Pemahaman.");
+     return;
+  }
+  latih={step:0,skor:0,state:[]}; 
+  dtLatih.forEach((_,i)=>latih.state[i]={done:false,attempted:false}); 
+  showScreen('scr-berlatih'); 
+  renderBerlatih(); 
+}
+
+function berlatihNext(){ if(latih.step<dtLatih.length){ latih.step++; renderBerlatih(); } }
+function berlatihPrev(){
+  document.querySelector('#scr-berlatih .nav-back').textContent="◀ Sebelumnya";
+  document.getElementById('berlatih-next').textContent="Selanjutnya ▶";
+  if(latih.step>0){ 
+    latih.step--; renderBerlatih(); 
+  } else { 
+    checkAndGoMenu('berlatih'); 
+  }
+}
+function lockLatih(){ document.querySelectorAll('.opsi, .bs-btn, .opsi-kompleks, .word-btn, .pair-item, #btn-cek').forEach(el=>el.style.pointerEvents='none'); }
+function restoreFeedback(q){ if(latih.state[latih.step].done){ setTimeout(()=>{ showFb('bl-fb','ok',`✅ <b>Sudah dijawab benar!</b><br>${q.msg||''}`); lockLatih(); },50); } }
+
+function renderBerlatih(){
+  if(latih.step>=dtLatih.length){ renderSkorLatih(); return; }
+  setProgress('berlatih-pfill','berlatih-plabel', latih.step+1, dtLatih.length);
+  
+  // Fitur: Tombol selanjutnya HANYA aktif apabila siswa menjawab benar (latih.state[latih.step].done = true)
+  document.getElementById('berlatih-next').disabled = !latih.state[latih.step].done;
+  
+  const q=dtLatih[latih.step], c=document.getElementById('berlatih-content');
+  if(q.t==='pg') r_PG(c,q);
+  else if(q.t==='bs') r_BS(c,q);
+  else if(q.t==='pg_kompleks') r_PG_Komp(c,q);
+  else if(q.t==='drag_word') r_Drag(c,q);
+  else if(q.t==='jodoh') r_JodohLatih(c,q);
+  restoreFeedback(q);
+}
+
+function ulangiLatih(){ play('klik'); renderBerlatih(); }
+function evLatih(benar){
+  const q=dtLatih[latih.step], st=latih.state[latih.step];
+  if(benar){ 
+    st.done=true; 
+    if(!st.attempted) latih.skor++; 
+    play('benar'); showConfetti(); 
+    showFb('bl-fb','ok',`✅ <b>Benar!</b><br>${q.msg||''}`); 
+    document.getElementById('berlatih-next').disabled=false; // Membuka tombol "Selanjutnya"
+    lockLatih(); 
+  }
+  else { 
+    st.attempted=true; 
+    play('salah'); triggerSalah(); 
+    showFb('bl-fb','no',`❌ Kurang tepat.<br>${q.msg||''}<div style=\"margin-top:24px;\"><button class=\"btn btn-kuning\" style=\"height:48px;padding:0 30px;font-size:18px\" onclick=\"ulangiLatih()\">🔄 Coba Lagi</button></div>`); 
+    lockLatih(); 
+  }
+}
+function soalKiri(q){
+  const gbr  = q.img      ? `<img src="${q.img}" class="soal-img" alt="Ilustrasi soal" onerror="imgErr(this)">` : '';
+  const stim = q.stimulus ? `<div class="soal-stimulus">${q.stimulus}</div>` : '';
+  return `<div class="soal-kiri"><div class="soal-label">Pertanyaan</div>${stim}<div class="soal-teks">${q.soal}</div>${gbr}</div>`;
+}
+function r_PG(c,q){
+  let opsi='';
+  q.opsi.forEach((o,i)=> opsi+=`<div class="opsi ${latih.state[latih.step].done && i===q.j ? 'benar':''}" onclick="if(!latih.state[latih.step].done){ play('klik'); this.classList.add(${i===q.j}?'benar':'salah'); evLatih(${i===q.j}); }"><span class="bul">${String.fromCharCode(65+i)}</span>${o}</div>`);
+  c.innerHTML=`<div class="soal-split">${soalKiri(q)}<div class="opsi-kanan"><div class="opsi-list">${opsi}</div><div class="feedback" id="bl-fb"></div></div></div>`;
+}
+function r_BS(c,q){
+  c.innerHTML=`<div class="center-col"><div class="soal">${q.soal}</div><div class="bs-grid"><button class="bs-btn bs-benar" onclick="if(!latih.state[latih.step].done){ play('klik'); evLatih(${true===q.j}); }">✔ BENAR</button><button class="bs-btn bs-salah" onclick="if(!latih.state[latih.step].done){ play('klik'); evLatih(${false===q.j}); }">✘ SALAH</button></div><div class="feedback" id="bl-fb"></div></div>`;
+}
+function r_PG_Komp(c,q){
+  latih.temp=[]; let opsi='';
+  q.opsi.forEach((o,i)=> opsi+=`<div class="opsi opsi-kompleks" id="pk-${i}" onclick="toggleKomp(${i})"><span class="bul">${String.fromCharCode(65+i)}</span>${o}</div>`);
+  c.innerHTML=`<div class="soal-split">${soalKiri(q)}<div class="opsi-kanan"><div class="opsi-list">${opsi}</div><button class="btn btn-biru" id="btn-cek" style="height:50px;margin-top:4px;font-size:19px" onclick="cekKomp()">Periksa Jawaban</button><div class="feedback" id="bl-fb"></div></div></div>`;
+}
+function toggleKomp(i){ if(latih.state[latih.step].done) return; const el=document.getElementById(`pk-${i}`); play('klik'); el.classList.toggle('terpilih'); const idx=latih.temp.indexOf(i); if(idx>-1) latih.temp.splice(idx,1); else latih.temp.push(i); }
+function cekKomp(){
+  const q=dtLatih[latih.step];
+  const benar=latih.temp.length===q.j.length && latih.temp.every(v=>q.j.includes(v));
+  if(benar){ document.querySelectorAll('.opsi-kompleks').forEach((el,i)=>{ if(q.j.includes(i)) el.classList.add('benar'); }); }
+  evLatih(benar);
+}
+function r_Drag(c,q){
+  let words=''; q.w.forEach((w,i)=> words+=`<button class="word-btn" id="wb-${i}" onclick="tapWord(this, '${w.replace(/'/g,"\\'")}')">${w}</button>`);
+  c.innerHTML=`<div class="center-col"><div class="kalimat-drag" id="k-drag">${q.soal}</div><div class="word-pool">${words}</div><button class="btn btn-biru" id="btn-cek" style="height:56px;margin-top:20px;font-size:20px" onclick="cekDrag()">Periksa</button><div class="feedback" id="bl-fb"></div></div>`;
+  setTimeout(()=> document.querySelectorAll('#k-drag .blank-slot').forEach(b=>b.addEventListener('click',()=>tapBlank(b))),50);
+}
+function tapWord(btn,w){
+  if(latih.state[latih.step].done) return;
+  const blanks=Array.from(document.querySelectorAll('#k-drag .blank-slot'));
+  const target=blanks.find(b=>!b.classList.contains('terisi'));
+  if(target){ play('klik'); target.textContent=w; target.classList.add('terisi'); btn.classList.add('dipakai'); target.dataset.wb=btn.id; }
+}
+function tapBlank(blank){
+  if(latih.state[latih.step].done || !blank.classList.contains('terisi')) return;
+  play('klik'); const btn=document.getElementById(blank.dataset.wb); if(btn) btn.classList.remove('dipakai');
+  blank.textContent='___'; blank.classList.remove('terisi'); delete blank.dataset.wb;
+}
+function cekDrag(){
+  const q=dtLatih[latih.step];
+  const ans=Array.from(document.querySelectorAll('#k-drag .blank-slot')).map(b=>b.textContent.trim());
+  evLatih(ans.join('|')===q.j.join('|'));
+}
+function r_JodohLatih(c,q){
+  activeGame={ s:null, c:0, t:q.pairs.length };
+  let k='', r='';
+  shuffle(q.pairs).forEach(p=>{ k+=`<div class="pair-item" data-side="kiri" data-n="${p.n}" onclick="latJodohLatih(this)"><span>${p.t}</span></div>`; });
+  shuffle(q.imgs).forEach(p=>{ r+=`<div class="pair-item" data-side="kanan" data-n="${p.n}" onclick="latJodohLatih(this)"><img src="${p.i}" class="img-pair" alt="${p.name}" onerror="imgErr(this)"><span>${p.name}</span></div>`; });
+  c.innerHTML=`<div class="center-col" style="z-index:10;"><div class="soal">${q.soal}</div><div class="jodoh-wrap" id="jw-latih"><div class="jodoh-kol">${k}</div><div class="jodoh-kol">${r}</div></div><div class="feedback" id="bl-fb"></div></div>`;
+}
+function latJodohLatih(el){
+  if(latih.state[latih.step].done || el.classList.contains('locked')) return;
+  if(el.dataset.side==='kiri'){ document.querySelectorAll('#berlatih-content [data-side="kiri"]').forEach(x=>x.classList.remove('sel')); el.classList.add('sel'); activeGame.s=el; play('klik'); return; }
+  if(!activeGame.s) return;
+  if(el.dataset.n===activeGame.s.dataset.n){
+    play('klik'); el.classList.add('locked'); activeGame.s.classList.add('locked','benar'); drawLine(activeGame.s,el,'jw-latih');
+    activeGame.s.classList.remove('sel'); activeGame.s=null; activeGame.c++;
+    if(activeGame.c===activeGame.t) evLatih(true);
+  } else { evLatih(false); }
+}
+function renderSkorLatih(){
+  progressStatus.berlatih = true; // Selesai semua
+  document.getElementById('berlatih-sub').textContent='Selesai';
+  document.getElementById('berlatih-next').disabled=true;
+  const total=dtLatih.length, persen=Math.round(latih.skor/total*100);
+  let pesan = persen>=80?'🎉 <b>Luar biasa! Pemahamanmu sudah sangat baik.</b>' : persen>=50?'Bagus! Ayo pelajari lagi bagian yang belum tepat.' : 'Tetap semangat! Ulangi materi Belajar lalu kerjakan lagi.';
+  play('bintang');
+  document.getElementById('berlatih-content').innerHTML=`
+    <div class="akhir"><h2>Kerja Bagus, Murid Hebat!</h2>
+      <div class="identitas">${infoMurid.nama} • ${infoMurid.sekolah}</div>
+      <p style="font-size:24px;margin-top:20px;">Jawaban benarmu:</p>
+      <p class="skor-angka">${latih.skor} <span style="font-size:40px;color:var(--tinta)">dari ${total}</span></p>
+      <p style="font-size:26px;font-weight:800;color:var(--primary);margin:0 0 10px;">Skor Akhir: ${persen}</p>
+      <p style="font-size:20px;margin-bottom:10px;">${pesan}</p>
+      <div style="display:flex;gap:20px;margin-top:10px">
+        <button class="btn btn-biru" style="height:60px;padding:0 30px;font-size:20px" onclick="startBerlatih()">🔄 Ulangi Ujian</button>
+        <button class="btn btn-kuning" style="height:60px;padding:0 30px;font-size:20px" onclick="goMenu()">☰ Menu Utama</button>
+      </div></div>`;
+}
+
+applyConfig();
+</script>
+</body>
+</html>
